@@ -1,0 +1,81 @@
+#!/bin/bash
+# Build script for Zeta Language
+# Usage:
+#   ./build.sh              # Build main zeta binary
+#   ./build.sh server       # Build zeta_server (HTTP server)
+#   ./build.sh dashboard    # Build zeta_dashboard (native OpenGL renderer)
+#   ./build.sh all          # Build everything
+
+set -e
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
+CORE_SRCS="src/core/valor_zeta.cpp src/core/tabla_simbolos.cpp src/core/estadisticas.cpp src/core/errores.cpp src/core/serializador.cpp src/core/grafo_json.cpp src/lexer/lexer.cpp src/parser/parser.cpp src/interpreter/interpreter.cpp src/dl_loader/dl_loader.cpp"
+INCLUDES="-std=c++20 -I include -I ."
+FLAGS="-Wno-deprecated-literal-operator -Wno-unused-variable -Wno-unused-but-set-variable -O2"
+
+build_zeta() {
+    echo "[BUILD] Compiling zeta (CLI)..."
+    clang++ $INCLUDES $FLAGS -o zeta src/main.cpp $CORE_SRCS 2>&1
+    echo "[BUILD] OK -> ./zeta"
+}
+
+build_server() {
+    echo "[BUILD] Compiling zeta_server (HTTP)..."
+    clang++ $INCLUDES $FLAGS -I deps/asio -DASIO_STANDALONE -o zeta_server \
+        src/server_main.cpp $CORE_SRCS -lpthread 2>&1
+    echo "[BUILD] OK -> ./zeta_server"
+}
+
+build_dashboard() {
+    echo "[BUILD] Compiling zeta_dashboard (native OpenGL renderer)..."
+    clang++ -std=c++20 -O2 \
+        -I . \
+        -I deps/glfw-build/include \
+        -I deps/imgui \
+        -I deps/imgui/backends \
+        -I deps/implot \
+        -o zeta_dashboard \
+        src/renderer/main.cpp \
+        deps/glfw-build/lib/libglfw3.a \
+        deps/imgui/imgui.cpp \
+        deps/imgui/imgui_draw.cpp \
+        deps/imgui/imgui_tables.cpp \
+        deps/imgui/imgui_widgets.cpp \
+        deps/imgui/backends/imgui_impl_glfw.cpp \
+        deps/imgui/backends/imgui_impl_opengl3.cpp \
+        deps/implot/implot.cpp \
+        deps/implot/implot_items.cpp \
+        -lGLEW -lGL -lX11 -lpthread -ldl -lm 2>&1
+    echo "[BUILD] OK -> ./zeta_dashboard"
+}
+
+build_term() {
+    echo "[BUILD] Compiling zeta_term (terminal renderer, no OpenGL)..."
+    clang++ -std=c++20 -O2 \
+        -I . \
+        -o zeta_term \
+        src/term/main.cpp 2>&1
+    echo "[BUILD] OK -> ./zeta_term"
+}
+
+case "${1:-cli}" in
+    cli|zeta)    build_zeta ;;
+    server)      build_server ;;
+    dashboard|renderer) build_dashboard ;;
+    term|terminal) build_term ;;
+    all)
+        build_zeta
+        build_server
+        build_dashboard
+        build_term
+        ;;
+    clean)
+        rm -f zeta zeta_server zeta_dashboard zeta_term
+        echo "[CLEAN] Removed binaries"
+        ;;
+    *)
+        echo "Usage: $0 [cli|server|dashboard|term|all|clean]"
+        exit 1
+        ;;
+esac

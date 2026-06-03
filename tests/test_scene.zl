@@ -1,0 +1,33 @@
+# Test del sistema Scene
+print("=== Test Scene Spec ===")
+
+# Cargar datos
+$datos = load_csv("tests/datos.csv")
+print("Datos cargados:", type($datos))
+
+# Crear scene
+$scn = scene("Mi Dashboard", "tester")
+print("Scene creada:", $scn)
+
+# Configurar layout
+layout("grid", 2, 10)
+print("Layout: grid 2 cols")
+
+# Agregar metricas
+add_metric("Ventas totales", sum($datos:ventas), "$", "#4caf50")
+add_metric("Gastos totales", sum($datos:gastos), "$", "#f44336")
+add_metric("Promedio ventas", mean($datos:ventas), "$", "#2196f3")
+
+# Agregar graficos
+add_line_plot($datos, "Ventas por mes", "mes", "ventas")
+add_bar_chart($datos, "Gastos por mes", "mes", "gastos")
+add_scatter($datos, "Ventas vs Gastos", "ventas", "gastos")
+add_histogram($datos, "Distribucion ventas", "ventas", 5)
+
+# Guardar
+print(guardar_grafo("tests/test_scene.json"))
+
+# Cargar de nuevo
+$scn2 = cargar_grafo("tests/test_scene.json")
+print("Recargado:", $scn2)
+print("Tipo:", type($scn2))

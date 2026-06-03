@@ -1,0 +1,3 @@
+# Test 5: Selective import restricted by export
+include "statslib_restricted"::{mean}
+print("mean =", mean(<1, 2, 3>))

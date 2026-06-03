@@ -1,0 +1,19 @@
+class Animal {
+    $name = "anonimo"
+    $legs = 4
+}
+
+class Dog extends Animal {
+    $breed = "mestizo"
+}
+
+class Puppy extends Dog {
+    $age = 0
+}
+
+$p = new Puppy()
+print("name:", $p.name)
+print("legs:", $p.legs)
+print("breed:", $p.breed)
+print("age:", $p.age)
+print("OK field inheritance")

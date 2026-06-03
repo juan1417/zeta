@@ -1,0 +1,72 @@
+# Test del Lenguaje Zeta
+
+# Variables escalares
+$precio = 199.99
+$nombre = "Analisis de Ventas"
+$activo = true
+
+# Vector con nulos
+$valores = <10.5, 20.0, null, 40.25, 50.0>
+
+# DataFrame
+$tabla = {
+    "id": <1.0, 2.0, 3.0, 4.0>,
+    "edad": <25.0, 31.0, null, 45.0>,
+    "score": <8.5, 9.2, 7.0, 8.8>
+}
+
+# Acceso a columnas
+$edades = $tabla:edad
+$scores = $tabla:score
+
+# Estadisticas
+$media_score = mean($tabla:score)
+$conteo_edades = count($tabla:edad)
+$max_score = max($tabla:score)
+$min_score = min($tabla:score)
+$suma = sum($tabla:score)
+
+print("Media Score:", $media_score)
+print("Max Score:", $max_score)
+print("Min Score:", $min_score)
+print("Count Edades:", $conteo_edades)
+print("Suma Scores:", $suma)
+
+# Filtro de filas
+$adultos = $tabla[[ edad >= 30.0 ]]
+
+# Control de flujo
+if ($media_score > 8.0) {
+    print("Rendimiento: Excelente")
+} else {
+    print("Rendimiento: Bajo revision")
+}
+
+# Bucle for
+$notas = <90.0, 75.5, 88.0>
+for ($nota in $notas) {
+    print("Nota:", $nota)
+}
+
+# Bucle while
+$i = 0.0
+while ($i < 3.0) {
+    print("Iteracion:", $i)
+    $i = $i + 1.0
+}
+
+# Ternario
+$status = ($precio > 100.0) ? "Caro" : "Barato"
+print("Status:", $status)
+
+# is_null
+$nulos = is_null($tabla:edad)
+print("Nulls en edad:", $nulos)
+
+# Plot
+$grafico = plot($tabla:score, "histogram")
+print("Grafico creado")
+
+# Metric
+$kpi = metric("Score Medio", $media_score)
+print("Metrica registrada")

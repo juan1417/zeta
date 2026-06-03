@@ -1,0 +1,2 @@
+$scn2 = cargar_grafo("tests/test_scene.json")
+print("Resultado:", $scn2)

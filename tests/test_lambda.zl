@@ -1,0 +1,54 @@
+# tests/test_lambda.zl
+# Verifica que las lambdas anonimas funcionan como expresiones.
+# Antes del fix, `fn(...) {...}` solo se aceptaba como declaracion `fn nombre(...)`.
+
+print("=== Test Lambda ===")
+
+# Lambda con un argumento
+$sq = fn($x) { return $x * $x }
+print("sq(5) =", sq(5))
+print("sq(7) =", sq(7))
+
+# Lambda con dos argumentos
+$add = fn($a, $b) { return $a + $b }
+print("add(3, 4) =", add(3, 4))
+
+# Lambda sin argumentos
+$pi = fn() { return 3.14 }
+print("pi() =", pi())
+
+# Lambda usada con map
+$nums = <1, 2, 3, 4, 5>
+$doubled = map($nums, fn($x) { return $x * 2 })
+print("doubled =", $doubled)
+
+# Lambda usada con filter
+$evens = filter($nums, fn($x) { return $x % 2 == 0 })
+print("evens =", $evens)
+
+# Lambda usada con reduce
+$total = reduce($nums, fn($acc, $x) { return $acc + $x }, 0)
+print("total =", $total)
+
+# Closure: lambda que captura y retorna lambda
+$make_adder = fn($n) { return fn($x) { return $x + $n } }
+$add10 = make_adder(10)
+print("add10(5) =", add10(5))
+
+# Lambda recursiva
+$fact = fn($n) {
+    if ($n <= 1) {
+        return 1
+    }
+    return $n * fact($n - 1)
+}
+print("fact(6) =", fact(6))
+
+# Composicion
+$succ = fn($x) { return $x + 1 }
+$dbl = fn($x) { return $x * 2 }
+$nums2 = <1, 2, 3, 4>
+$composed = map(map($nums2, $succ), $dbl)
+print("composed =", $composed)
+
+print("OK lambda")

@@ -1,0 +1,23 @@
+# Simple test
+$precio = 199.99
+print("Precio:", $precio)
+
+$tabla = {
+    "id": <1.0, 2.0, 3.0>,
+    "edad": <25.0, 31.0, 45.0>
+}
+
+$media = mean($tabla:edad)
+print("Media:", $media)
+
+if ($precio > 100.0) {
+    print("Caro")
+} else {
+    print("Barato")
+}
+
+$i = 0.0
+while ($i < 3.0) {
+    print("i:", $i)
+    $i = $i + 1.0
+}

@@ -1,0 +1,23 @@
+# Test E2E completo: crea scene con datos numericos y exporta JSON
+$datos = load_csv("tests/datos.csv")
+$idx = <1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0>
+$datos2 = {"idx": $idx, "ventas": $datos:ventas, "gastos": $datos:gastos}
+
+$scn = scene("Analisis de Ventas", "zeta")
+layout("grid", 2, 12, "#1a1a1a")
+
+# KPIs
+add_metric("Ventas totales", sum($datos:ventas), "$", "#4caf50")
+add_metric("Gastos totales", sum($datos:gastos), "$", "#f44336")
+add_metric("Margen bruto", sum($datos:ventas) - sum($datos:gastos), "$", "#2196f3")
+add_metric("Promedio ventas", mean($datos:ventas), "$", "#ff9800")
+
+# Graficos con indices numericos
+add_line_plot($datos2, "Tendencia de ventas", "idx", "ventas")
+add_bar_chart($datos2, "Gastos mensuales", "idx", "gastos")
+add_scatter($datos2, "Ventas vs Gastos", "ventas", "gastos")
+add_histogram($datos2, "Distribucion de ventas", "ventas", 6)
+add_linear_regression($datos2, "Regresion V vs G", "ventas", "gastos")
+add_box_plot($datos2, "Box de ventas", "ventas")
+
+print(guardar_grafo("tests/dashboard_scene.json"))

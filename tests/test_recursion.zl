@@ -1,0 +1,70 @@
+# tests/test_recursion.zl
+# Verifica que las funciones recursivas funcionan correctamente.
+# Antes del fix, el RETURN marker se desenvolvia prematuramente en evaluar_bloque,
+# causando que el codigo posterior al `if (return ...)` se ejecutara (incluyendo
+# la llamada recursiva), lo que llevaba a stack overflow.
+
+print("=== Test Recursion ===")
+
+fn fact($n) {
+    if ($n <= 1) {
+        return 1
+    }
+    return $n * fact($n - 1)
+}
+
+print("fact(0) =", fact(0))
+print("fact(1) =", fact(1))
+print("fact(5) =", fact(5))
+print("fact(10) =", fact(10))
+print("fact(15) =", fact(15))
+
+fn fib($n) {
+    if ($n < 2) {
+        return $n
+    }
+    return fib($n - 1) + fib($n - 2)
+}
+
+print("fib(0) =", fib(0))
+print("fib(1) =", fib(1))
+print("fib(10) =", fib(10))
+
+fn sum_to($n) {
+    if ($n <= 0) {
+        return 0
+    }
+    return $n + sum_to($n - 1)
+}
+
+print("sum_to(100) =", sum_to(100))
+
+fn find_idx($v, $target) {
+    $i = 0
+    for ($x in $v) {
+        if ($x == $target) {
+            return $i
+        }
+        $i = $i + 1
+    }
+    return -1
+}
+
+print("find_idx(<10,20,30,40>,30) =", find_idx(<10, 20, 30, 40>, 30))
+print("find_idx(<10,20,30>,99) =", find_idx(<10, 20, 30>, 99))
+
+fn first_seven($limit) {
+    $i = 0
+    while ($i < $limit) {
+        if ($i == 7) {
+            return $i
+        }
+        $i = $i + 1
+    }
+    return -1
+}
+
+print("first_seven(20) =", first_seven(20))
+print("first_seven(5) =", first_seven(5))
+
+print("OK recursion")

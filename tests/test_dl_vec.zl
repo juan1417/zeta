@@ -1,0 +1,19 @@
+# Test del sistema DL Loader con vectores
+print("=== Test DL Loader (vectores) ===")
+load_lib("libtestnative.so", {
+    "native_double": "fn($x) -> $x",
+    "native_sum_vec": "fn($vec) -> $x",
+    "native_product": "fn($vec) -> $x",
+    "native_pow": "fn($a, $b) -> $a",
+    "native_sqrt": "fn($x) -> $x"
+})
+print()
+
+print("native_double(21) =", native_double(21))
+
+$vec = <1, 2, 3, 4, 5>
+print("native_sum_vec($vec) =", native_sum_vec($vec))
+print("sum($vec) =", sum($vec))
+print("native_product($vec) =", native_product($vec))
+print("native_pow(2, 8) =", native_pow(2, 8))
+print("native_sqrt(2) =", native_sqrt(2))

@@ -1,0 +1,27 @@
+# Test 1: Full module import
+include "statslib"
+print("=== Test 1: Full import ===")
+$datos = <1, 2, 3, 4, 5, 6, 7, 8, 9, 10>
+print("statslib tiene:", type(statslib))
+print("mean =", statslib::mean($datos))
+print("stddev =", statslib::stddev($datos))
+print()
+
+# Test 2: Selective import
+include "statslib"::{mean, stddev}
+print("=== Test 2: Selective import ===")
+print("mean =", mean($datos))
+print("stddev =", stddev($datos))
+print()
+
+# Test 3: Import with alias
+include "statslib" as st
+print("=== Test 3: Import con alias ===")
+print("st tiene:", type(st))
+print("correlation via alias:", st::correlation($datos, $datos))
+print()
+
+# Test 4: Cycle detection (commented to avoid breaking)
+# include "cycle_a"
+
+print("=== Todos los tests pasaron ===")

@@ -1,0 +1,14 @@
+# Test del sistema DL Loader
+print("=== Test DL Loader ===")
+load_lib("libtestnative.so", {
+    "native_double": "fn($x) -> $x",
+    "native_pow": "fn($a, $b) -> $a",
+    "native_sqrt": "fn($x) -> $x",
+    "native_pi": "fn() -> $x"
+})
+print()
+
+print("native_double(21) =", native_double(21))
+print("native_pow(2, 10) =", native_pow(2, 10))
+print("native_sqrt(144) =", native_sqrt(144))
+print("native_pi() =", native_pi())

@@ -1,0 +1,7 @@
+class Counter {
+    $count = 0
+    fn inc($self) {
+        return 0
+    }
+}
+print("class declared")

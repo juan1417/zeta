@@ -1,0 +1,66 @@
+fn mean($vec) {
+    $n = len($vec)
+    if ($n == 0) {
+        return 0
+    }
+    $suma = 0
+    for ($i in range($n)) {
+        if (!is_null($vec($i))) {
+            $suma = $suma + $vec($i)
+        }
+    }
+    return $suma / $n
+}
+
+fn stddev($vec) {
+    $m = mean($vec)
+    $n = len($vec)
+    if ($n == 0) {
+        return 0
+    }
+    $suma = 0
+    for ($i in range($n)) {
+        if (!is_null($vec($i))) {
+            $d = $vec($i) - $m
+            $suma = $suma + $d * $d
+        }
+    }
+    return sqrt($suma / $n)
+}
+
+fn correlation($x, $y) {
+    $mx = mean($x)
+    $my = mean($y)
+    $n = len($x)
+    $num = 0
+    $dx2 = 0
+    $dy2 = 0
+    for ($i in range($n)) {
+        $dx = $x($i) - $mx
+        $dy = $y($i) - $my
+        $num = $num + $dx * $dy
+        $dx2 = $dx2 + $dx * $dx
+        $dy2 = $dy2 + $dy * $dy
+    }
+    $den = sqrt($dx2) * sqrt($dy2)
+    if ($den == 0) {
+        return 0
+    }
+    return $num / $den
+}
+
+fn normalize($vec) {
+    $m = mean($vec)
+    $sd = stddev($vec)
+    $n = len($vec)
+    $out = <0.0>
+    if ($sd == 0) {
+        return $out
+    }
+    for ($i in range($n)) {
+        $out = push($out, ($vec($i) - $m) / $sd)
+    }
+    return $out
+}
+
+export { mean, stddev, correlation, normalize }

@@ -1,0 +1,6 @@
+$scn = scene("Test")
+add_metric("Test metric", 42.0)
+print(guardar_grafo("tests/test_simple.json"))
+print("--- cargando ---")
+$scn2 = cargar_grafo("tests/test_simple.json")
+print("Resultado:", $scn2)

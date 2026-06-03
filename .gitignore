@@ -1,0 +1,41 @@
+# Build artifacts
+build/
+zeta
+zeta_server
+zeta_dashboard
+zeta_term
+test_zeta
+*.log
+*.o
+*.so
+*.a
+*.dll
+*.dylib
+
+# ImGui config
+imgui.ini
+
+# Distribution
+dist/
+
+# Tests outputs
+tests/*.json
+tests/*.png
+tests/*.txt
+tests/e2e_*
+
+# Crash dumps
+core
+core.*
+*.core
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

@@ -1,0 +1,34 @@
+# Test exhaustivo del sistema de import
+print("=== Test 1: Full module import ===")
+include "statslib"
+$datos = <10, 20, 30, 40, 50, 60, 70, 80, 90, 100>
+print("statslib tipo:", type(statslib))
+print("via namespace:", statslib::mean($datos))
+print("via namespace stddev:", statslib::stddev($datos))
+print()
+
+print("=== Test 2: Selective import ===")
+include "statslib"::{mean, stddev}
+print("mean directo:", mean($datos))
+print("stddev directo:", stddev($datos))
+print()
+
+print("=== Test 3: Import con alias ===")
+include "statslib" as st
+print("st tipo:", type(st))
+print("via alias:", st::correlation($datos, $datos))
+print()
+
+print("=== Test 4: Module cache (re-import no re-carga) ===")
+include "statslib"
+print("re-import OK, sin error")
+print()
+
+print("=== Test 5: Funcion definida en script principal ===")
+fn duplicar($x) {
+    return $x * 2
+}
+print("duplicar(5) =", duplicar(5))
+print()
+
+print("=== Todos los tests pasaron ===")

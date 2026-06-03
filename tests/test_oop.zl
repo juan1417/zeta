@@ -1,0 +1,17 @@
+class Counter {
+    $count = 0
+    fn inc($self) {
+        $self.count = $self.count + 1
+        return $self.count
+    }
+    fn get($self) {
+        return $self.count
+    }
+}
+
+$c = new Counter()
+print("initial:", $c.get())
+print("after inc:", $c.inc())
+print("after inc:", $c.inc())
+print("after inc:", $c.inc())
+print("final:", $c.get())
