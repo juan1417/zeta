@@ -1,0 +1,110 @@
+{
+  "lang": "en",
+  "nav": {
+    "home": "Home",
+    "features": "Features",
+    "install": "Install",
+    "docs": "Docs",
+    "repo": "Repository",
+    "back_home": "&larr; Back to home",
+    "view_github": "View on GitHub &rarr;"
+  },
+  "hero": {
+    "eyebrow": "v0.1.1 — MIT License",
+    "title": "Analyze data.<br><span>Transform ideas.</span>",
+    "sub": "Zeta is a data analysis and transformation language with Rust/Python hybrid syntax, native C++20 engine, and renderers for dashboard and terminal.",
+    "cta_install": "Install",
+    "cta_github": "View on GitHub",
+    "code_comment1": "# Hello world in Zeta",
+    "code_comment2": "# Variables with $",
+    "code_comment3": "# DataFrame from CSV"
+  },
+  "stats": {
+    "types": "Data types",
+    "binary": "CLI binary",
+    "renderers": "Renderers",
+    "engine": "Native engine"
+  },
+  "features": {
+    "title": "Features",
+    "subtitle": "Designed for data analysts, systems engineers, and DSL designers.",
+    "syntax_title": "Hybrid syntax",
+    "syntax_desc": "Python familiarity with Rust robustness. Variables with <code>$</code>, collections with <code>&lt;&gt;</code>, and a dynamic type system with 15 value types.",
+    "engine_title": "C++20 engine",
+    "engine_desc": "High-performance interpreter with no GC. Complete pipeline: Lexer &rarr; Parser &rarr; AST &rarr; Interpreter.",
+    "dataframes_title": "Native DataFrames",
+    "dataframes_desc": "Load CSV with <code>load_csv</code>, access columns with <code>$data:sales</code>, and transform data without external dependencies.",
+    "errors_title": "Errors and null as data",
+    "errors_desc": "Error propagation with <code>?</code>, <code>is_error</code>, <code>is_null</code>. Null behaves like NaN, not like an exception.",
+    "abi_title": "C ABI — load_lib",
+    "abi_desc": "Load <code>.so</code> / <code>.dll</code> with a single <code>load_lib(...)</code>. Automatic marshalling of Zeta vectors to C pointers.",
+    "renderers_title": "Three renderers",
+    "renderers_desc": "<code>zeta_dashboard</code> (OpenGL + ImGui), <code>zeta_term</code> (ANSI 24-bit), and an HTTP REST server with endpoints for data, metrics, and charts."
+  },
+  "download": {
+    "title": "Download Zeta",
+    "subtitle": "Available for Linux, macOS and Windows. Compiled binary, ready to use in seconds.",
+    "label_linux": "Download for Linux",
+    "label_macos": "Download for macOS",
+    "label_windows": "Download for Windows",
+    "source": "Source code",
+    "install_title": "Install on your system",
+    "install_subtitle": "Choose your operating system to see the installation steps.",
+    "binaries_title": "Included binaries",
+    "zeta_desc": "CLI interpreter. Runs <code>.zl</code> scripts.",
+    "server_desc": "HTTP REST server with Crow.",
+    "dashboard_desc": "OpenGL + ImGui + ImPlot renderer.",
+    "term_desc": "ANSI 24-bit renderer. No OpenGL, SSH-friendly."
+  },
+  "docs_section": {
+    "title": "Documentation",
+    "subtitle": "15 chapters covering everything from language philosophy to complete examples.",
+    "ch01_title": "Philosophy and design",
+    "ch01_desc": "Why Zeta, design decisions, audience",
+    "ch02_title": "Syntax",
+    "ch02_desc": "Tokens, literals, operators, sigil $, collections",
+    "ch03_title": "Data types and structures",
+    "ch03_desc": "The 15 ValorZeta, null as NaN, vectors, matrices, DataFrames",
+    "ch04_title": "Control flow and functions",
+    "ch04_desc": "if/else, for/in, while, fn, recursion, closures",
+    "ch05_title": "Native functions",
+    "ch05_desc": "All built-in functions with examples",
+    "ch06_title": "Imports and modules",
+    "ch06_desc": "include, export, namespace ::, alias as",
+    "ch07_title": "I/O: CSV, JSON, XLSX",
+    "ch07_desc": "load_csv, save_csv, load_json, load_xlsx",
+    "ch08_title": "Errors and null as data",
+    "ch08_desc": "? propagation, is_error, is_null, mk_err",
+    "ch09_title": "Scenes and visualization",
+    "ch09_desc": "scene, layout, add_metric, add_line_plot, add_bar_chart",
+    "ch10_title": "Native library loading",
+    "ch10_desc": "load_lib, ZETA_API, vector marshalling",
+    "ch11_title": "HTTP server",
+    "ch11_desc": "zeta_server, REST endpoints, /api/data, /api/run",
+    "ch12_title": "Renderers",
+    "ch12_desc": "zeta_dashboard (OpenGL) and zeta_term (ANSI 24-bit)",
+    "ch13_title": "Internal architecture",
+    "ch13_desc": "Pipeline: Lexer &rarr; Parser &rarr; AST &rarr; Interpreter",
+    "ch14_title": "Build and packaging",
+    "ch14_desc": "build.sh, package.sh, test_e2e.sh",
+    "ch15_title": "Complete examples",
+    "ch15_desc": "26 .zl scripts ready to run"
+  },
+  "cta": {
+    "title": "Start analyzing data today",
+    "subtitle": "Clone the repository, compile and run your first script in 5 minutes.",
+    "cta_github": "View on GitHub",
+    "cta_docs": "Read documentation"
+  },
+  "footer": {
+    "license": "MIT License",
+    "docs": "Docs",
+    "license_link": "License"
+  },
+  "install": {
+    "linux_title": "Linux (Debian / Ubuntu)",
+    "macos_title": "macOS",
+    "windows_title": "Windows"
+  },
+  "toc": "On this page"
+}
