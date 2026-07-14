@@ -4,6 +4,7 @@
   var currentLang = localStorage.getItem('zeta-lang') || 'es';
   var translations = {};
   var loaded = {};
+  var originalTexts = {};
 
   function getNestedVal(obj, path) {
     var parts = path.split('.');
@@ -15,6 +16,15 @@
     return current;
   }
 
+  function saveOriginals() {
+    var elements = document.querySelectorAll('[data-i18n]');
+    for (var i = 0; i < elements.length; i++) {
+      var el = elements[i];
+      var key = el.getAttribute('data-i18n');
+      originalTexts[key] = el.innerHTML;
+    }
+  }
+
   function applyTranslations() {
     var elements = document.querySelectorAll('[data-i18n]');
     for (var i = 0; i < elements.length; i++) {
@@ -23,6 +33,8 @@
       var val = getNestedVal(translations, key);
       if (val !== null && val !== undefined) {
         el.innerHTML = val;
+      } else if (originalTexts[key]) {
+        el.innerHTML = originalTexts[key];
       }
     }
 
@@ -45,10 +57,12 @@
 
     document.documentElement.lang = currentLang;
 
+    var langLabel = document.getElementById('lang-label');
+    if (langLabel) {
+      langLabel.textContent = currentLang === 'es' ? 'EN' : 'ES';
+    }
     var toggleBtn = document.getElementById('lang-toggle');
     if (toggleBtn) {
-      var langLabel = document.getElementById('lang-label');
-      if (langLabel) langLabel.textContent = currentLang === 'es' ? 'EN' : 'ES';
       toggleBtn.title = currentLang === 'es' ? 'Switch to English' : 'Cambiar a español';
     }
   }
@@ -99,15 +113,18 @@
   };
 
   document.addEventListener('DOMContentLoaded', function() {
+    saveOriginals();
+
     var toggleBtn = document.getElementById('lang-toggle');
     if (toggleBtn) {
-      toggleBtn.addEventListener('click', toggleLanguage);
+      toggleBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        toggleLanguage();
+      });
     }
 
     if (currentLang !== 'es') {
       loadLang(currentLang);
-    } else {
-      applyTranslations();
     }
   });
 })();
