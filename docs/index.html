@@ -202,17 +202,17 @@
 
         <div class="install-panel active" id="install-linux">
           <h4 data-i18n="install.linux_title">Linux (Debian / Ubuntu)</h4>
-          <code>tar xzf zeta-linux-x64.tar.gz && sudo cp zeta zeta_server zeta_dashboard zeta_term /usr/local/bin/</code>
+          <code>tar xzf zeta-linux-x64.tar.gz && cd zeta-* && ./install.sh</code>
         </div>
 
         <div class="install-panel" id="install-macos">
           <h4 data-i18n="install.macos_title">macOS</h4>
-          <code>tar xzf zeta-macos-arm64.tar.gz && sudo cp zeta zeta_server zeta_dashboard zeta_term /usr/local/bin/</code>
+          <code>tar xzf zeta-macos-arm64.tar.gz && cd zeta-* && ./install.sh</code>
         </div>
 
         <div class="install-panel" id="install-windows">
           <h4 data-i18n="install.windows_title">Windows</h4>
-          <code>Expand-Archive zeta-windows-x64.zip -DestinationPath C:\zeta; $env:PATH += ";C:\zeta"</code>
+          <code>Expand-Archive zeta-windows-x64.zip -DestinationPath C:\zeta; C:\zeta\install.ps1</code>
         </div>
       </div>
 

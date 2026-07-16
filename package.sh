@@ -1,21 +1,40 @@
 #!/bin/bash
-# package.sh - Crea un paquete de distribución de Zeta
+# package.sh - Crea paquetes de distribución de Zeta por plataforma
 # Uso: ./package.sh [version]
+#
+# Genera:
+#   dist/zeta-linux-x64.tar.gz
+#   dist/zeta-macos-arm64.tar.gz (en macOS ARM)
+#   dist/zeta-windows-x64.zip (solo binarios, sin dashboard)
 
 set -e
 cd "$(dirname "$0")"
 
-VERSION="${1:-0.1.0}"
-NAME="zeta-${VERSION}"
-DIST="dist/${NAME}"
+VERSION="${1:-0.1.1}"
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m)
 
-echo "=== Packaging Zeta v${VERSION} ==="
+case "$ARCH" in
+    x86_64|amd64)  ARCH_NAME="x64" ;;
+    aarch64|arm64) ARCH_NAME="arm64" ;;
+    *)             ARCH_NAME="$ARCH" ;;
+esac
 
-# 0. Build all
-echo "[1/5] Building all binaries..."
-./build.sh all 2>&1 | tail -4
+PKG_NAME="zeta-${OS}-${ARCH_NAME}"
+DIST="dist/${PKG_NAME}"
 
-# 1. Limpiar dist
+echo "=== Packaging Zeta v${VERSION} (${OS}-${ARCH_NAME}) ==="
+
+# 0. Build
+echo "[1/6] Building binaries..."
+./build.sh cli 2>&1 | tail -1
+./build.sh server 2>&1 | tail -1
+./build.sh term 2>&1 | tail -1
+if [ "$OS" = "linux" ]; then
+    ./build.sh dashboard 2>&1 | tail -1 || true
+fi
+
+# 1. Clean dist
 rm -rf dist
 mkdir -p "${DIST}/bin"
 mkdir -p "${DIST}/lib"
@@ -23,115 +42,104 @@ mkdir -p "${DIST}/examples"
 mkdir -p "${DIST}/tests"
 mkdir -p "${DIST}/docs"
 
-# 2. Copiar binarios
-echo "[2/5] Copying binaries..."
-cp zeta zeta_server zeta_dashboard zeta_term "${DIST}/bin/"
-chmod +x "${DIST}/bin/"*
+# 2. Copy binaries
+echo "[2/6] Copying binaries..."
+for bin in zeta zeta_server zeta_term; do
+    if [ -f "$bin" ]; then
+        cp "$bin" "${DIST}/bin/"
+        chmod +x "${DIST}/bin/$bin"
+    fi
+done
+# Dashboard only on Linux
+if [ -f "zeta_dashboard" ] && [ "$OS" = "linux" ]; then
+    cp zeta_dashboard "${DIST}/bin/"
+    chmod +x "${DIST}/bin/zeta_dashboard"
+fi
 
-# 3. Copiar librerías y ejemplos
-echo "[3/5] Copying libs and examples..."
-cp lib/*.so lib/*.zl "${DIST}/lib/" 2>/dev/null || true
-cp lib/test_lib.cpp "${DIST}/lib/" 2>/dev/null || true
-cp tests/dashboard_scene.zl "${DIST}/examples/"
-cp tests/datos.csv "${DIST}/examples/"
-cp tests/test_import.zl "${DIST}/examples/"
+# 3. Copy libs
+echo "[3/6] Copying libraries..."
+cp lib/*.zl "${DIST}/lib/" 2>/dev/null || true
 
-# 4. Copiar tests
-cp tests/test_*.zl "${DIST}/tests/" 2>/dev/null || true
-cp tests/test_*.zeta "${DIST}/tests/" 2>/dev/null || true
-cp tests/datos.csv "${DIST}/tests/" 2>/dev/null || true
+# 4. Copy examples
+cp tests/dashboard_scene.zl "${DIST}/examples/" 2>/dev/null || true
+cp tests/datos.csv "${DIST}/examples/" 2>/dev/null || true
+cp tests/test_import.zl "${DIST}/examples/" 2>/dev/null || true
 
-# 5. Generar README
-echo "[4/5] Generating README..."
+# 5. Copy docs
+cp docs/*.md "${DIST}/docs/" 2>/dev/null || true
+
+# 6. Copy installer scripts
+echo "[4/6] Copying installers..."
+cp install.sh "${DIST}/" 2>/dev/null && chmod +x "${DIST}/install.sh" || true
+cp uninstall.sh "${DIST}/" 2>/dev/null && chmod +x "${DIST}/uninstall.sh" || true
+cp install.ps1 "${DIST}/" 2>/dev/null || true
+cp uninstall.ps1 "${DIST}/" 2>/dev/null || true
+
+# 7. Generate README
+echo "[5/6] Generating README..."
 cat > "${DIST}/README.md" <<EOF
-# Zeta Language v${VERSION}
+# Zeta Language v${VERSION} (${OS}-${ARCH_NAME})
 
-Lenguaje analítico con sintaxis similar a Rust/Python y motor de visualizacion nativo.
+Lenguaje de análisis y transformación de datos con sintaxis híbrida Rust/Python.
 
-## Binarios
+## Instalación rápida
 
-- `bin/zeta` — Intérprete CLI
-- `bin/zeta_server` — Servidor HTTP con API REST (Crow)
-- `bin/zeta_dashboard` — Renderer nativo OpenGL+ImGui+ImPlot (requiere X11)
-- `bin/zeta_term` — Renderer ANSI de terminal (sin OpenGL)
+### Linux / macOS
+\`\`\`bash
+chmod +x install.sh
+./install.sh
+\`\`\`
 
-## Uso rapido
+### Windows (PowerShell)
+\`\`\`powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\install.ps1
+\`\`\`
+
+## Binarios incluidos
+
+- \`bin/zeta\` — Intérprete CLI
+- \`bin/zeta_server\` — Servidor HTTP REST
+- \`bin/zeta_term\` — Renderer ANSI de terminal
+$(if [ "$OS" = "linux" ]; then echo "- \`bin/zeta_dashboard\` — Renderer OpenGL (Linux only)"; fi)
+
+## Uso rápido
 
 \`\`\`bash
-# Ejecutar un script
-./bin/zeta examples/dashboard_scene.zl
-
-# Iniciar el server (en una terminal)
-./bin/zeta_server --port 8080
-
-# Lanzar el dashboard (en otra terminal, requiere X11)
-./bin/zeta_dashboard --host localhost --port 8080
-
-# O el renderer de terminal (SSH-friendly, no requiere X11)
-./bin/zeta_term --host localhost --port 8080
-\`\`\`
-
-## Compilar librerias nativas
-
-\`\`\`bash
-clang++ -std=c++20 -shared -fPIC -fvisibility=hidden \\
-    -I include -o lib/libtestnative.so lib/test_lib.cpp
-\`\`\`
-
-## Sintaxis basica
-
-\`\`\`
-# Variables
-\$datos = load_csv("datos.csv")
-
-# Funciones nativas
-add_metric("Total", sum(\$datos:ventas))
-add_line_plot(\$datos, "Tendencia", "mes", "ventas")
-
-# Importar librerias
-include "statslib"
-mean(\$datos:ventas)
+zeta --help
+zeta script.zl
+zeta_server --port 8080
+zeta_term --host localhost
 \`\`\`
 
 ## API REST (zeta_server)
 
-- \`GET /\` — UI HTML basica
-- \`GET /api/datos\` — Variables globales como JSON
-- \`GET /api/metricas\` — Metricas KPI
-- \`GET /api/dashboard\` — Config dashboard
-- \`GET /api/grafo\` — Scene spec para renderer
-- \`POST /api/run\` — Ejecutar codigo Zeta (\`{"code": "..."}\`)
+- \`GET /\` — UI web
+- \`GET /api/datos\` — Variables como JSON
+- \`GET /api/metricas\` — Métricas KPI
+- \`POST /api/run\` — Ejecutar código Zeta
 
-## Mas informacion
+## Mas información
 
-Ver archivos en \`tests/\` para ejemplos completos.
+Ver \`docs/\` y \`examples/\` para más detalles.
 EOF
 
-# 6. Script de inicio
-cat > "${DIST}/start.sh" <<'EOF'
-#!/bin/bash
-cd "$(dirname "$0")"
-PORT="${PORT:-8080}"
-
-echo "Iniciando zeta_server en puerto $PORT..."
-./bin/zeta_server --port $PORT &
-SRV_PID=$!
-
-sleep 1
-echo "Iniciando zeta_dashboard..."
-./bin/zeta_dashboard --host localhost --port $PORT
-
-kill $SRV_PID 2>/dev/null
-EOF
-chmod +x "${DIST}/start.sh"
-
-# 7. Tarball
-echo "[5/5] Creating tarball..."
+# 8. Create archive
+echo "[6/6] Creating archive..."
 cd dist
-tar czf "${NAME}.tar.gz" "${NAME}/"
-ls -la "${NAME}.tar.gz"
+
+if [ "$OS" = "windows" ] || [ "${CREATE_ZIP:-0}" = "1" ]; then
+    zip -r "${PKG_NAME}.zip" "${PKG_NAME}/" 2>/dev/null || tar czf "${PKG_NAME}.tar.gz" "${PKG_NAME}/"
+    ARCHIVE="${PKG_NAME}.tar.gz"
+else
+    tar czf "${PKG_NAME}.tar.gz" "${PKG_NAME}/"
+    ARCHIVE="${PKG_NAME}.tar.gz"
+fi
+
+cd ..
+
 echo
 echo "=== OK ==="
-echo "Paquete: dist/${NAME}.tar.gz"
-du -sh "${NAME}/"
-ls -la "${NAME}/bin/"
+echo "Paquete: dist/${ARCHIVE}"
+du -sh "dist/${PKG_NAME}/"
+ls -la "dist/${PKG_NAME}/bin/"

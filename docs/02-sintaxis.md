@@ -35,6 +35,8 @@ Los comentarios son **ignorados por el lexer** (no producen tokens). No hay come
 | Tipo | Sintaxis | Ejemplo | Tipo interno |
 |------|----------|---------|--------------|
 | Número | Dígitos, opcional `.` | `42`, `3.14`, `0.5` | `NUM` |
+| Número (separador miles) | Dígitos con `,` cada 3 | `1,000`, `1,000,000` | `NUM` |
+| Número (científico) | Notación `e`/`E` con `+`/`-` | `1.5e3`, `2.5e-3`, `1E10` | `NUM` |
 | Cadena | `"..."` con escapes `\n \t \" \\ \r` | `"hola\nmundo"` | `STR` |
 | Booleano | `true` / `false` | `true` | `BOOL` |
 | Nulo | `null` | `null` | `NUM` con valor `quiet NaN` |
@@ -171,17 +173,17 @@ Las claves son **siempre cadenas** (literales `"..."`). Los valores pueden ser c
 
 ## 2.10. Indexado y acceso
 
-### Por índice numérico: `()`
+### Por índice numérico: `[]`
 
 ```zeta
 $nums = <10, 20, 30>
-print($nums(0))      # 10
-print($nums(2))      # 30
+print($nums[0])      # 10
+print($nums[2])      # 30
 ```
 
-Los paréntesis redondos son **siempre** indexado numérico. Para vectores, matrices, diccionarios (devuelve un error si la clave no existe).
+Los corchetes son **siempre** indexado numérico. Para vectores, matrices (con coma), diccionarios (devuelve un error si la clave no existe).
 
-### Por índice doble (matriz): `[]`
+### Por índice doble (matriz): `[i, j]`
 
 ```zeta
 $m = <<1, 2, 3>, <4, 5, 6>>
@@ -189,7 +191,7 @@ print($m[0, 0])      # 1
 print($m[1, 2])      # 6
 ```
 
-Los corchetes con coma son para matrices: `$m[fila, columna]`. Sin coma, son indexado simple alternativo a `()`.
+Los corchetes con coma son para matrices: `$m[fila, columna]`. Sin coma, son indexado simple para vectores y diccionarios.
 
 ### Acceso a columna de DataFrame: `:`
 
@@ -323,7 +325,7 @@ $nums = <1, 2, 3>
 print(map($nums, fn($x) { return $x * 10 }))    # <10, 20, 30>
 ```
 
-Para llamar a una función almacenada en una variable, usa el nombre **sin sigil** (`f(args)`). La sintaxis `$f(args)` es acceso por índice.
+Para llamar a una función almacenada en una variable, usa el nombre **sin sigil** (`f(args)`). La sintaxis `$f[i]` es acceso por índice.
 
 
 ## 2.16. Imports: `include`

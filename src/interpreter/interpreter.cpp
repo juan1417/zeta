@@ -5,6 +5,8 @@
 #include "zeta/dl_loader.hpp"
 #include "zeta/zeta_abi.h"
 #include "zeta/grafo_json.hpp"
+#include "zeta/serializador.hpp"
+#include "zeta/xlsx_reader.hpp"
 #include <iostream>
 #include <sstream>
 #include <fstream>
@@ -12,6 +14,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <ctime>
+#include <chrono>
 #include <iomanip>
 #include <filesystem>
 #include <cstdlib>
@@ -22,6 +25,14 @@ namespace fs = std::filesystem;
 
 Interpreter::Interpreter() {
     ambito_global_ = std::make_shared<TablaSimbolos>();
+    
+    // Constantes numéricas
+    ambito_global_->definir("PI", mk_num(M_PI));
+    ambito_global_->definir("E", mk_num(M_E));
+    ambito_global_->definir("INFINITY", mk_num(std::numeric_limits<double>::infinity()));
+    ambito_global_->definir("MAX_NUM", mk_num(std::numeric_limits<double>::max()));
+    ambito_global_->definir("MIN_NUM", mk_num(std::numeric_limits<double>::min()));
+    
     const char* env_path = std::getenv("ZETA_PATH");
     if (env_path) {
         std::string p = env_path;
@@ -63,6 +74,17 @@ std::vector<nlohmann::json> Interpreter::obtener_metricas_json() {
         resultado.push_back(valor_a_json(mk_metrica(m)));
     }
     return resultado;
+}
+
+const std::vector<RutaRegistrada>& Interpreter::obtener_rutas() const {
+    return rutas_registradas_;
+}
+
+ValorZeta Interpreter::llamar_usuario_directo(const ValorZeta& handler, const std::vector<ValorZeta>& args) {
+    if (!handler || handler->tipo != ValorImpl::FUNC) {
+        return mk_err("runtime", "No se pudo llamar al handler", 0);
+    }
+    return llamar_usuario(handler, args);
 }
 
 static nlohmann::json scene_node_a_json(const SceneNode& n) {
@@ -326,13 +348,20 @@ std::string Interpreter::valor_a_string(const ValorZeta& val) {
         case ValorImpl::DF: {
             std::string s = "{";
             bool first = true;
-            for (const auto& [col, vec] : val->df_val.columnas) {
+            for (const auto& [col_name, col] : val->df_val.columnas) {
                 if (!first) s += ", ";
-                s += col + ": [";
-                for (size_t i = 0; i < vec.size(); ++i) {
+                s += col_name + ": [";
+                for (size_t i = 0; i < col.size(); ++i) {
                     if (i > 0) s += ", ";
-                    if (es_null(vec[i])) s += "null";
-                    else s += std::to_string(vec[i]);
+                    if (col.null_bitmap[i]) {
+                        s += "null";
+                    } else if (col.tipo == "num") {
+                        s += std::to_string(col.nums[i]);
+                    } else if (col.tipo == "str") {
+                        s += col.strs[i];
+                    } else if (col.tipo == "bool") {
+                        s += col.bools[i] ? "true" : "false";
+                    }
                 }
                 s += "]";
                 first = false;
@@ -355,6 +384,25 @@ std::string Interpreter::valor_a_string(const ValorZeta& val) {
         case ValorImpl::FUNC: return "[fn " + val->func_nombre + "]";
         case ValorImpl::GRAFICO: return "[plot: " + val->grafico_val.tipo_grafico + "]";
         case ValorImpl::METRICA: return "[metric: " + val->metrica_val.nombre + " = " + std::to_string(val->metrica_val.valor) + "]";
+        case ValorImpl::OBJ: {
+            auto obj = val->obj_val;
+            std::string cur = obj->clase;
+            while (!cur.empty()) {
+                auto cit = clases_definidas_.find(cur);
+                if (cit == clases_definidas_.end()) break;
+                auto mit = cit->second->metodos.find("to_string");
+                if (mit != cit->second->metodos.end()) {
+                    auto prev_this = this_actual_;
+                    this_actual_ = val;
+                    ValorZeta result = llamar_usuario(mit->second, {val});
+                    this_actual_ = prev_this;
+                    if (result && result->tipo == ValorImpl::STR) return result->str_val;
+                    return result ? valor_a_string(result) : obj->clase + "{}";
+                }
+                cur = cit->second->padre;
+            }
+            return obj->clase + "{}";
+        }
         default: return tipo_nombre(val);
     }
 }
@@ -390,6 +438,43 @@ ValorZeta Interpreter::evaluar_binaria(const NodoAST& nodo) {
     auto izq = evaluar(*nodo.hijos[0]);
     auto der = evaluar(*nodo.hijos[1]);
     auto op = nodo.valor_texto;
+
+    // Coercion: bool → num → str
+    if (izq && der && izq->tipo != der->tipo) {
+        if (izq->tipo == ValorImpl::BOOL && der->tipo == ValorImpl::NUM) {
+            izq = mk_num(izq->bool_val ? 1.0 : 0.0);
+        } else if (izq->tipo == ValorImpl::NUM && der->tipo == ValorImpl::BOOL) {
+            der = mk_num(der->bool_val ? 1.0 : 0.0);
+        } else if (izq->tipo == ValorImpl::NUM && der->tipo == ValorImpl::STR) {
+            std::string num_str;
+            double v = izq->num_val;
+            if (v == static_cast<long long>(v) && std::abs(v) < 1e15) {
+                num_str = std::to_string(static_cast<long long>(v));
+            } else {
+                num_str = std::to_string(v);
+                auto pos = num_str.find_last_not_of('0');
+                if (pos != std::string::npos && num_str[pos] == '.') pos--;
+                num_str.erase(pos + 1);
+            }
+            izq = mk_str(num_str);
+        } else if (izq->tipo == ValorImpl::STR && der->tipo == ValorImpl::NUM) {
+            std::string num_str;
+            double v = der->num_val;
+            if (v == static_cast<long long>(v) && std::abs(v) < 1e15) {
+                num_str = std::to_string(static_cast<long long>(v));
+            } else {
+                num_str = std::to_string(v);
+                auto pos = num_str.find_last_not_of('0');
+                if (pos != std::string::npos && num_str[pos] == '.') pos--;
+                num_str.erase(pos + 1);
+            }
+            der = mk_str(num_str);
+        } else if (izq->tipo == ValorImpl::BOOL && der->tipo == ValorImpl::STR) {
+            izq = mk_str(izq->bool_val ? "true" : "false");
+        } else if (izq->tipo == ValorImpl::STR && der->tipo == ValorImpl::BOOL) {
+            der = mk_str(der->bool_val ? "true" : "false");
+        }
+    }
 
     if (op == "+" && izq && der) {
         if (izq->tipo == ValorImpl::NUM && der->tipo == ValorImpl::NUM) {
@@ -427,6 +512,47 @@ ValorZeta Interpreter::evaluar_binaria(const NodoAST& nodo) {
     }
 
     if ((op == "==" || op == "!=") && izq && der) {
+        // Vectorized == / !=
+        if (izq->tipo == ValorImpl::VEC && der->tipo == ValorImpl::NUM) {
+            std::vector<bool> result;
+            for (double v : izq->vec_val) {
+                if (es_null(v)) result.push_back(false);
+                else result.push_back(op == "==" ? (v == der->num_val) : (v != der->num_val));
+            }
+            return mk_bool_vec(result);
+        }
+        if (izq->tipo == ValorImpl::VEC && der->tipo == ValorImpl::VEC) {
+            size_t n = std::min(izq->vec_val.size(), der->vec_val.size());
+            std::vector<bool> result;
+            for (size_t i = 0; i < n; ++i) {
+                if (es_null(izq->vec_val[i]) || es_null(der->vec_val[i])) result.push_back(false);
+                else result.push_back(op == "==" ? (izq->vec_val[i] == der->vec_val[i]) : (izq->vec_val[i] != der->vec_val[i]));
+            }
+            return mk_bool_vec(result);
+        }
+        // Vectorized STR_VEC == STR / STR_VEC == STR_VEC
+        if (izq->tipo == ValorImpl::STR_VEC && der->tipo == ValorImpl::STR) {
+            std::vector<bool> result;
+            for (const auto& s : izq->str_vec_val) {
+                result.push_back(op == "==" ? (s == der->str_val) : (s != der->str_val));
+            }
+            return mk_bool_vec(result);
+        }
+        if (izq->tipo == ValorImpl::STR && der->tipo == ValorImpl::STR_VEC) {
+            std::vector<bool> result;
+            for (const auto& s : der->str_vec_val) {
+                result.push_back(op == "==" ? (izq->str_val == s) : (izq->str_val != s));
+            }
+            return mk_bool_vec(result);
+        }
+        if (izq->tipo == ValorImpl::STR_VEC && der->tipo == ValorImpl::STR_VEC) {
+            size_t n = std::min(izq->str_vec_val.size(), der->str_vec_val.size());
+            std::vector<bool> result;
+            for (size_t i = 0; i < n; ++i) {
+                result.push_back(op == "==" ? (izq->str_vec_val[i] == der->str_vec_val[i]) : (izq->str_vec_val[i] != der->str_vec_val[i]));
+            }
+            return mk_bool_vec(result);
+        }
         bool eq = false;
         if (izq->tipo == ValorImpl::NUM && der->tipo == ValorImpl::NUM) {
             if (es_null(izq->num_val) || es_null(der->num_val)) eq = false;
@@ -435,6 +561,8 @@ ValorZeta Interpreter::evaluar_binaria(const NodoAST& nodo) {
             eq = izq->bool_val == der->bool_val;
         } else if (izq->tipo == ValorImpl::STR && der->tipo == ValorImpl::STR) {
             eq = izq->str_val == der->str_val;
+        } else if (izq->tipo == ValorImpl::OBJ && der->tipo == ValorImpl::OBJ) {
+            eq = (izq->obj_val.get() == der->obj_val.get());
         }
         return mk_bool(op == "==" ? eq : !eq);
     }
@@ -452,6 +580,53 @@ ValorZeta Interpreter::evaluar_binaria(const NodoAST& nodo) {
         if (op == "<") return mk_bool(izq->str_val < der->str_val);
         if (op == ">=") return mk_bool(izq->str_val >= der->str_val);
         if (op == "<=") return mk_bool(izq->str_val <= der->str_val);
+    }
+
+    // Vectorized comparison: VEC op NUM → bool_vec
+    if (izq && der && izq->tipo == ValorImpl::VEC && der->tipo == ValorImpl::NUM) {
+        std::vector<bool> result;
+        for (double v : izq->vec_val) {
+            if (es_null(v)) { result.push_back(false); continue; }
+            if (op == ">") result.push_back(v > der->num_val);
+            else if (op == "<") result.push_back(v < der->num_val);
+            else if (op == ">=") result.push_back(v >= der->num_val);
+            else if (op == "<=") result.push_back(v <= der->num_val);
+            else if (op == "==") result.push_back(v == der->num_val);
+            else if (op == "!=") result.push_back(v != der->num_val);
+            else { result.push_back(false); }
+        }
+        return mk_bool_vec(result);
+    }
+    // Vectorized comparison: NUM op VEC → bool_vec
+    if (izq && der && izq->tipo == ValorImpl::NUM && der->tipo == ValorImpl::VEC) {
+        std::vector<bool> result;
+        for (double v : der->vec_val) {
+            if (es_null(v)) { result.push_back(false); continue; }
+            if (op == ">") result.push_back(izq->num_val > v);
+            else if (op == "<") result.push_back(izq->num_val < v);
+            else if (op == ">=") result.push_back(izq->num_val >= v);
+            else if (op == "<=") result.push_back(izq->num_val <= v);
+            else if (op == "==") result.push_back(izq->num_val == v);
+            else if (op == "!=") result.push_back(izq->num_val != v);
+            else { result.push_back(false); }
+        }
+        return mk_bool_vec(result);
+    }
+    // Vectorized comparison: VEC op VEC → bool_vec
+    if (izq && der && izq->tipo == ValorImpl::VEC && der->tipo == ValorImpl::VEC) {
+        size_t n = std::min(izq->vec_val.size(), der->vec_val.size());
+        std::vector<bool> result;
+        for (size_t i = 0; i < n; ++i) {
+            if (es_null(izq->vec_val[i]) || es_null(der->vec_val[i])) { result.push_back(false); continue; }
+            if (op == ">") result.push_back(izq->vec_val[i] > der->vec_val[i]);
+            else if (op == "<") result.push_back(izq->vec_val[i] < der->vec_val[i]);
+            else if (op == ">=") result.push_back(izq->vec_val[i] >= der->vec_val[i]);
+            else if (op == "<=") result.push_back(izq->vec_val[i] <= der->vec_val[i]);
+            else if (op == "==") result.push_back(izq->vec_val[i] == der->vec_val[i]);
+            else if (op == "!=") result.push_back(izq->vec_val[i] != der->vec_val[i]);
+            else { result.push_back(false); }
+        }
+        return mk_bool_vec(result);
     }
 
     if (op == "&&" && izq && der && izq->tipo == ValorImpl::BOOL && der->tipo == ValorImpl::BOOL) {
@@ -553,16 +728,69 @@ ValorZeta Interpreter::evaluar_ternaria(const NodoAST& nodo) {
 }
 
 ValorZeta Interpreter::evaluar_vector(const NodoAST& nodo) {
-    std::vector<double> valores;
+    // Evaluate all children and detect types
+    std::vector<ValorZeta> elems;
+    bool has_num = false, has_str = false, has_bool = false, has_obj = false;
     for (const auto& hijo : nodo.hijos) {
         auto val = evaluar(*hijo);
-        if (val && val->tipo == ValorImpl::NUM) {
-            valores.push_back(val->num_val);
-        } else {
-            valores.push_back(crear_null());
+        elems.push_back(val);
+        if (!val) { has_num = true; continue; } // null is compatible with num
+        switch (val->tipo) {
+            case ValorImpl::NUM:  has_num = true; break;
+            case ValorImpl::STR:  has_str = true; break;
+            case ValorImpl::BOOL: has_bool = true; break;
+            case ValorImpl::OBJ:  has_obj = true; break;
+            default: break;
         }
     }
-    return mk_vec(valores);
+
+    int type_count = (has_num ? 1 : 0) + (has_str ? 1 : 0) + (has_bool ? 1 : 0) + (has_obj ? 1 : 0);
+
+    if (type_count <= 1) {
+        // Homogeneous: all same type
+        if (has_str) {
+            std::vector<std::string> strs;
+            for (auto& e : elems) {
+                if (!e) strs.push_back("");
+                else if (e->tipo == ValorImpl::STR) strs.push_back(e->str_val);
+                else strs.push_back(valor_a_string(e));
+            }
+            return mk_str_vec(strs);
+        }
+        if (has_bool && !has_num) {
+            std::vector<bool> bools;
+            for (auto& e : elems) {
+                if (!e) bools.push_back(false);
+                else if (e->tipo == ValorImpl::BOOL) bools.push_back(e->bool_val);
+                else bools.push_back(false);
+            }
+            return mk_bool_vec(bools);
+        }
+        if (has_obj && !has_num && !has_str && !has_bool) {
+            // All objects: return as dict with index keys (no OBJ_VEC type exists)
+            std::map<std::string, ValorZeta> dict;
+            for (size_t i = 0; i < elems.size(); ++i) {
+                dict[std::to_string(i)] = elems[i];
+            }
+            return mk_dict(dict);
+        }
+        // Default: numeric (includes null-only and bool+null cases)
+        std::vector<double> nums;
+        for (auto& e : elems) {
+            if (!e) nums.push_back(crear_null());
+            else if (e->tipo == ValorImpl::NUM) nums.push_back(e->num_val);
+            else if (e->tipo == ValorImpl::BOOL) nums.push_back(e->bool_val ? 1.0 : 0.0);
+            else nums.push_back(crear_null());
+        }
+        return mk_vec(nums);
+    }
+
+    // Mixed types → dict with index keys (preserves types)
+    std::map<std::string, ValorZeta> dict;
+    for (size_t i = 0; i < elems.size(); ++i) {
+        dict[std::to_string(i)] = elems[i];
+    }
+    return mk_dict(dict);
 }
 
 ValorZeta Interpreter::evaluar_matriz(const NodoAST& nodo) {
@@ -585,7 +813,7 @@ ValorZeta Interpreter::evaluar_matriz(const NodoAST& nodo) {
 ValorZeta Interpreter::evaluar_diccionario(const NodoAST& nodo) {
     bool es_dataframe = true;
     size_t len_esperada = 0;
-    std::map<std::string, std::vector<double>> columnas;
+    std::map<std::string, Columna> df_columns;
     std::map<std::string, ValorZeta> dict_map;
 
     for (const auto& hijo : nodo.hijos) {
@@ -599,17 +827,44 @@ ValorZeta Interpreter::evaluar_diccionario(const NodoAST& nodo) {
         dict_map[clave] = valor;
 
         if (valor && valor->tipo == ValorImpl::VEC) {
-            columnas[clave] = valor->vec_val;
-            if (columnas.size() == 1) len_esperada = valor->vec_val.size();
+            Columna col("num");
+            col.nums = valor->vec_val;
+            col.null_bitmap.resize(col.nums.size(), false);
+            for (size_t i = 0; i < col.nums.size(); ++i) {
+                if (es_null(col.nums[i])) col.null_bitmap[i] = true;
+            }
+            df_columns[clave] = std::move(col);
+            if (df_columns.size() == 1) len_esperada = valor->vec_val.size();
             else if (valor->vec_val.size() != len_esperada) es_dataframe = false;
+        } else if (valor && valor->tipo == ValorImpl::STR_VEC) {
+            Columna col("str");
+            col.strs = valor->str_vec_val;
+            col.null_bitmap.resize(col.strs.size(), false);
+            for (size_t i = 0; i < col.strs.size(); ++i) {
+                if (col.strs[i].empty()) col.null_bitmap[i] = true;
+            }
+            df_columns[clave] = std::move(col);
+            if (df_columns.size() == 1) len_esperada = valor->str_vec_val.size();
+            else if (valor->str_vec_val.size() != len_esperada) es_dataframe = false;
+        } else if (valor && valor->tipo == ValorImpl::BOOL_VEC) {
+            Columna col("bool");
+            col.bools = valor->bool_vec_val;
+            col.null_bitmap.resize(col.bools.size(), false);
+            df_columns[clave] = std::move(col);
+            if (df_columns.size() == 1) len_esperada = valor->bool_vec_val.size();
+            else if (valor->bool_vec_val.size() != len_esperada) es_dataframe = false;
         } else {
             es_dataframe = false;
         }
     }
 
-    if (es_dataframe && !columnas.empty()) {
-        DataFrame df{std::move(columnas)};
-        return mk_df(df);
+    if (es_dataframe && !df_columns.empty()) {
+        DataFrame df;
+        for (const auto& [k, v] : df_columns) {
+            df.nombres_columnas.push_back(k);
+        }
+        df.columnas = std::move(df_columns);
+        return mk_df(std::move(df));
     }
 
     return mk_dict(dict_map);
@@ -697,10 +952,45 @@ ValorZeta Interpreter::llamar_usuario(const ValorZeta& func, const std::vector<V
 ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vector<ValorZeta>& args) {
     if (nombre == "is_null") {
         if (args.empty()) return mk_bool(false);
-        if (args[0] && args[0]->tipo == ValorImpl::VEC) {
+        if (!args[0]) return mk_bool(true);
+        if (args[0]->tipo == ValorImpl::VEC) {
             return mk_bool_vec(fn_is_null_bool(args[0]->vec_val));
         }
-        return mk_bool(es_null_valor(args[0]));
+        if (args[0]->tipo == ValorImpl::STR_VEC) {
+            std::vector<bool> result;
+            for (const auto& s : args[0]->str_vec_val) result.push_back(s.empty());
+            return mk_bool_vec(result);
+        }
+        if (args[0]->tipo == ValorImpl::BOOL_VEC) {
+            std::vector<bool> result(args[0]->bool_vec_val.size(), false);
+            return mk_bool_vec(result);
+        }
+        return mk_bool(es_null_valor(args[0]) || (args[0]->tipo == ValorImpl::STR && args[0]->str_val.empty()));
+    }
+
+    if (nombre == "fill_null") {
+        if (args.size() < 2) return mk_err("runtime", "fill_null requiere (valor, defecto)", 0);
+        auto val = args[0];
+        auto def = args[1];
+        if (!val) return def;
+        if (val->tipo == ValorImpl::VEC) {
+            std::vector<double> result = val->vec_val;
+            for (auto& v : result) {
+                if (es_null(v)) v = def->num_val;
+            }
+            return mk_vec(result);
+        }
+        if (val->tipo == ValorImpl::STR_VEC) {
+            std::vector<std::string> result = val->str_vec_val;
+            for (auto& s : result) {
+                if (s.empty()) s = def->str_val;
+            }
+            return mk_str_vec(result);
+        }
+        if (val->tipo == ValorImpl::NUM && es_null(val->num_val)) {
+            return def;
+        }
+        return val;
     }
 
     if (nombre == "is_error") {
@@ -729,6 +1019,11 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         if (args.empty()) return mk_null_val();
         if (args[0] && args[0]->tipo == ValorImpl::VEC) {
             return mk_num(fn_sum(args[0]->vec_val));
+        }
+        if (args[0] && args[0]->tipo == ValorImpl::BOOL_VEC) {
+            double total = 0;
+            for (bool b : args[0]->bool_vec_val) total += b ? 1.0 : 0.0;
+            return mk_num(total);
         }
         return mk_null_val();
     }
@@ -794,10 +1089,29 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         return mk_num(std::sqrt(args[0]->num_val));
     }
 
+    if (nombre == "format") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::NUM || args[1]->tipo != ValorImpl::NUM)
+            return mk_err("runtime", "format requiere (numero, decimales)", 0);
+        if (es_null(args[0]->num_val)) return mk_null_val();
+        int decimales = static_cast<int>(args[1]->num_val);
+        if (decimales < 0) decimales = 0;
+        if (decimales > 15) decimales = 15;
+        std::ostringstream ss;
+        ss << std::fixed << std::setprecision(decimales) << args[0]->num_val;
+        return mk_str(ss.str());
+    }
+
+    if (nombre == "time") {
+        auto now = std::chrono::high_resolution_clock::now();
+        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
+        return mk_num(static_cast<double>(ns) / 1e9);
+    }
+
     if (nombre == "len") {
         if (args.empty()) return mk_err("runtime", "len requiere un argumento", 0);
         if (args[0]->tipo == ValorImpl::STR) return mk_num(static_cast<double>(args[0]->str_val.size()));
         if (args[0]->tipo == ValorImpl::VEC) return mk_num(static_cast<double>(args[0]->vec_val.size()));
+        if (args[0]->tipo == ValorImpl::STR_VEC) return mk_num(static_cast<double>(args[0]->str_vec_val.size()));
         if (args[0]->tipo == ValorImpl::BOOL_VEC) return mk_num(static_cast<double>(args[0]->bool_vec_val.size()));
         if (args[0]->tipo == ValorImpl::DICT) return mk_num(static_cast<double>(args[0]->dict_val.size()));
         if (args[0]->tipo == ValorImpl::DF) return mk_num(static_cast<double>(args[0]->df_val.filas()));
@@ -840,10 +1154,18 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
     }
 
     if (nombre == "sort") {
-        if (args.empty() || args[0]->tipo != ValorImpl::VEC) return mk_err("runtime", "sort requiere un vector", 0);
-        std::vector<double> v = args[0]->vec_val;
-        std::sort(v.begin(), v.end());
-        return mk_vec(v);
+        if (args.empty()) return mk_err("runtime", "sort requiere un argumento", 0);
+        if (args[0]->tipo == ValorImpl::VEC) {
+            std::vector<double> v = args[0]->vec_val;
+            std::sort(v.begin(), v.end());
+            return mk_vec(v);
+        }
+        if (args[0]->tipo == ValorImpl::STR_VEC) {
+            std::vector<std::string> v = args[0]->str_vec_val;
+            std::sort(v.begin(), v.end());
+            return mk_str_vec(v);
+        }
+        return mk_err("runtime", "sort requiere un vector o str_vec", 0);
     }
 
     if (nombre == "unique") {
@@ -933,10 +1255,22 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         if (args[0]->tipo == ValorImpl::DF) {
             const auto& df = args[0]->df_val;
             DataFrame result;
-            for (const auto& [col, vec] : df.columnas) {
-                std::vector<double> sliced;
-                for (int i = 0; i < n && i < static_cast<int>(vec.size()); ++i) sliced.push_back(vec[i]);
-                result.columnas[col] = sliced;
+            result.nombres_columnas = df.nombres_columnas;
+            for (const auto& [col_name, col] : df.columnas) {
+                Columna sliced(col.tipo);
+                for (int i = 0; i < n && i < static_cast<int>(col.size()); ++i) {
+                    if (col.tipo == "num") {
+                        sliced.nums.push_back(col.nums[i]);
+                        sliced.null_bitmap.push_back(col.null_bitmap[i]);
+                    } else if (col.tipo == "str") {
+                        sliced.strs.push_back(col.strs[i]);
+                        sliced.null_bitmap.push_back(col.null_bitmap[i]);
+                    } else if (col.tipo == "bool") {
+                        sliced.bools.push_back(col.bools[i]);
+                        sliced.null_bitmap.push_back(col.null_bitmap[i]);
+                    }
+                }
+                result.columnas[col_name] = std::move(sliced);
             }
             return mk_df(result);
         }
@@ -944,6 +1278,16 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
             std::vector<double> sliced;
             for (int i = 0; i < n && i < static_cast<int>(args[0]->vec_val.size()); ++i) sliced.push_back(args[0]->vec_val[i]);
             return mk_vec(sliced);
+        }
+        if (args[0]->tipo == ValorImpl::STR_VEC) {
+            std::vector<std::string> sliced;
+            for (int i = 0; i < n && i < static_cast<int>(args[0]->str_vec_val.size()); ++i) sliced.push_back(args[0]->str_vec_val[i]);
+            return mk_str_vec(sliced);
+        }
+        if (args[0]->tipo == ValorImpl::BOOL_VEC) {
+            std::vector<bool> sliced;
+            for (int i = 0; i < n && i < static_cast<int>(args[0]->bool_vec_val.size()); ++i) sliced.push_back(args[0]->bool_vec_val[i]);
+            return mk_bool_vec(sliced);
         }
         return mk_err("runtime", "head requiere DataFrame o vector", 0);
     }
@@ -955,7 +1299,64 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         const std::string& col = args[1]->str_val;
         auto it = df.columnas.find(col);
         if (it == df.columnas.end()) return mk_err("runtime", "Columna no encontrada: " + col, 0);
-        return mk_vec(it->second);
+        const auto& c = it->second;
+        if (c.tipo == "num") return mk_vec(c.nums);
+        if (c.tipo == "str") return mk_str_vec(c.strs);
+        if (c.tipo == "bool") return mk_bool_vec(c.bools);
+        return mk_err("runtime", "Tipo de columna desconocido", 0);
+    }
+
+    if (nombre == "drop") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::DF || args[1]->tipo != ValorImpl::STR)
+            return mk_err("runtime", "drop requiere DataFrame y nombre de columna", 0);
+        const auto& df = args[0]->df_val;
+        const std::string& col_a_eliminar = args[1]->str_val;
+        if (df.columnas.find(col_a_eliminar) == df.columnas.end())
+            return mk_err("runtime", "Columna no encontrada: " + col_a_eliminar, 0);
+        DataFrame resultado;
+        for (const auto& nombre_col : df.nombres_columnas) {
+            if (nombre_col != col_a_eliminar) {
+                resultado.nombres_columnas.push_back(nombre_col);
+                resultado.columnas[nombre_col] = df.columnas.at(nombre_col);
+            }
+        }
+        return mk_df(std::move(resultado));
+    }
+
+    if (nombre == "drop_nan") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::DF || args[1]->tipo != ValorImpl::STR)
+            return mk_err("runtime", "drop_nan requiere DataFrame y nombre de columna", 0);
+        const auto& df = args[0]->df_val;
+        const std::string& col = args[1]->str_val;
+        auto it = df.columnas.find(col);
+        if (it == df.columnas.end())
+            return mk_err("runtime", "Columna no encontrada: " + col, 0);
+        const Columna& columna_ref = it->second;
+        std::vector<bool> mascara;
+        for (size_t i = 0; i < columna_ref.size(); ++i) {
+            mascara.push_back(!columna_ref.es_null(i));
+        }
+        DataFrame resultado;
+        resultado.nombres_columnas = df.nombres_columnas;
+        for (const auto& [nombre, col_data] : df.columnas) {
+            Columna nueva_col(col_data.tipo);
+            for (size_t i = 0; i < col_data.size(); ++i) {
+                if (mascara[i]) {
+                    if (col_data.tipo == "num") {
+                        nueva_col.nums.push_back(col_data.nums[i]);
+                        nueva_col.null_bitmap.push_back(col_data.null_bitmap[i]);
+                    } else if (col_data.tipo == "str") {
+                        nueva_col.strs.push_back(col_data.strs[i]);
+                        nueva_col.null_bitmap.push_back(col_data.null_bitmap[i]);
+                    } else if (col_data.tipo == "bool") {
+                        nueva_col.bools.push_back(col_data.bools[i]);
+                        nueva_col.null_bitmap.push_back(col_data.null_bitmap[i]);
+                    }
+                }
+            }
+            resultado.columnas[nombre] = std::move(nueva_col);
+        }
+        return mk_df(std::move(resultado));
     }
 
     if (nombre == "split") {
@@ -1221,83 +1622,329 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         if (args[0]->tipo != ValorImpl::STR) return mk_err("runtime", "load_csv requiere un string como ruta", 0);
 
         std::string ruta = args[0]->str_val;
+        char delim = ',';
+        if (args.size() >= 2 && args[1]->tipo == ValorImpl::STR && !args[1]->str_val.empty()) {
+            delim = args[1]->str_val[0];
+        }
+
         std::ifstream archivo(ruta);
         if (!archivo.is_open()) {
             return mk_err("io", "No se pudo abrir el archivo: " + ruta, 0);
         }
 
+        // Read header
         std::string linea;
-        // Leer header
         if (!std::getline(archivo, linea)) {
             return mk_err("io", "Archivo CSV vacio: " + ruta, 0);
         }
 
-        // Parsear headers
+        // Parse header with manual tokenizer
         std::vector<std::string> headers;
-        std::stringstream ss_header(linea);
-        std::string col;
-        while (std::getline(ss_header, col, ',')) {
-            // Trim whitespace
-            size_t start = col.find_first_not_of(" \t\r\n");
-            size_t end = col.find_last_not_of(" \t\r\n");
-            if (start != std::string::npos) {
-                headers.push_back(col.substr(start, end - start + 1));
+        {
+            size_t pos = 0;
+            while (pos < linea.size()) {
+                size_t end = linea.find(delim, pos);
+                if (end == std::string::npos) end = linea.size();
+                std::string tok = linea.substr(pos, end - pos);
+                // trim whitespace
+                size_t s = tok.find_first_not_of(" \t\r\n\"");
+                size_t e = tok.find_last_not_of(" \t\r\n\"");
+                headers.push_back(s != std::string::npos ? tok.substr(s, e - s + 1) : "");
+                pos = end + 1;
             }
         }
 
-        // Inicializar columnas
-        std::map<std::string, std::vector<double>> columnas;
-        for (const auto& h : headers) {
-            columnas[h] = std::vector<double>();
+        size_t nc = headers.size();
+        if (nc == 0) return mk_err("parse", "CSV sin columnas: " +ruta, 0);
+
+        // Reserve structures
+        std::vector<std::vector<std::string>> datos_raw(nc);
+
+        // Count lines for reserve
+        {
+            std::streampos cur = archivo.tellg();
+            size_t line_count = 0;
+            std::string tmp;
+            while (std::getline(archivo, tmp)) if (!tmp.empty()) ++line_count;
+            archivo.clear();
+            archivo.seekg(cur);
+            for (size_t i = 0; i < nc; ++i) datos_raw[i].reserve(line_count);
         }
 
-        // Leer filas
-        size_t fila_num = 1;
+        // Single pass: read + parse + store raw
         while (std::getline(archivo, linea)) {
             if (linea.empty()) continue;
-
-            std::stringstream ss_fila(linea);
-            std::string valor;
+            size_t pos = 0;
             size_t col_idx = 0;
-
-            while (std::getline(ss_fila, valor, ',') && col_idx < headers.size()) {
-                // Trim
-                size_t start = valor.find_first_not_of(" \t\r\n\"");
-                size_t end = valor.find_last_not_of(" \t\r\n\"");
-                std::string limpio;
-                if (start != std::string::npos) {
-                    limpio = valor.substr(start, end - start + 1);
-                }
-
-                double num_val;
-                if (limpio.empty() || limpio == "null" || limpio == "NA" || limpio == "NaN" || limpio == "n/a" || limpio == "") {
-                    num_val = crear_null();
-                } else {
-                    try {
-                        num_val = std::stod(limpio);
-                    } catch (...) {
-                        num_val = crear_null();
-                    }
-                }
-
-                columnas[headers[col_idx]].push_back(num_val);
+            while (col_idx < nc) {
+                size_t end = linea.find(delim, pos);
+                if (end == std::string::npos) end = linea.size();
+                std::string tok = linea.substr(pos, end - pos);
+                // trim
+                size_t s = tok.find_first_not_of(" \t\r\n\"");
+                size_t e = tok.find_last_not_of(" \t\r\n\"");
+                datos_raw[col_idx].push_back(s != std::string::npos ? tok.substr(s, e - s + 1) : "");
+                pos = end + 1;
                 col_idx++;
             }
-
-            // Rellenar columnas faltantes con null
-            for (size_t i = col_idx; i < headers.size(); ++i) {
-                columnas[headers[i]].push_back(crear_null());
-            }
-
-            fila_num++;
         }
 
-        DataFrame df{std::move(columnas)};
+        // Infer types and build columns in one pass per column
+        std::map<std::string, Columna> columnas;
+        std::vector<std::string> nombres;
+        nombres.reserve(nc);
+
+        for (size_t ci = 0; ci < nc; ++ci) {
+            nombres.push_back(headers[ci]);
+            const auto& col_data = datos_raw[ci];
+            size_t nrows = col_data.size();
+
+            // Type detection: check first non-null, non-empty value
+            int tipo_detectado = 0; // 0=unset, 1=num, 2=bool, 3=str
+            for (const auto& v : col_data) {
+                if (v.empty() || v == "null" || v == "NA" || v == "NaN" || v == "n/a") continue;
+                if (v == "true" || v == "false" || v == "TRUE" || v == "FALSE" || v == "True" || v == "False") {
+                    tipo_detectado = 2; break;
+                }
+                double dummy;
+                auto [ptr, ec] = std::from_chars(v.data(), v.data() + v.size(), dummy);
+                if (ec == std::errc()) { tipo_detectado = 1; break; }
+                tipo_detectado = 3; break;
+            }
+
+            if (tipo_detectado == 1) {
+                // Numeric column
+                Columna c("num");
+                c.nums.reserve(nrows);
+                c.null_bitmap.reserve(nrows);
+                for (const auto& v : col_data) {
+                    if (v.empty() || v == "null" || v == "NA" || v == "NaN" || v == "n/a") {
+                        c.nums.push_back(crear_null());
+                        c.null_bitmap.push_back(true);
+                    } else {
+                        double val;
+                        auto [ptr, ec] = std::from_chars(v.data(), v.data() + v.size(), val);
+                        c.nums.push_back(ec == std::errc() ? val : crear_null());
+                        c.null_bitmap.push_back(ec != std::errc());
+                    }
+                }
+                columnas[headers[ci]] = std::move(c);
+            } else if (tipo_detectado == 2) {
+                // Boolean column
+                Columna c("bool");
+                c.bools.reserve(nrows);
+                c.null_bitmap.reserve(nrows);
+                for (const auto& v : col_data) {
+                    if (v.empty() || v == "null" || v == "NA" || v == "NaN" || v == "n/a") {
+                        c.bools.push_back(false);
+                        c.null_bitmap.push_back(true);
+                    } else {
+                        c.bools.push_back(v == "true" || v == "TRUE" || v == "True");
+                        c.null_bitmap.push_back(false);
+                    }
+                }
+                columnas[headers[ci]] = std::move(c);
+            } else {
+                // String column (default)
+                Columna c("str");
+                c.strs.reserve(nrows);
+                c.null_bitmap.reserve(nrows);
+                for (const auto& v : col_data) {
+                    if (v.empty() || v == "null" || v == "NA" || v == "NaN" || v == "n/a") {
+                        c.strs.push_back("");
+                        c.null_bitmap.push_back(true);
+                    } else {
+                        c.strs.push_back(std::move(const_cast<std::string&>(v)));
+                        c.null_bitmap.push_back(false);
+                    }
+                }
+                columnas[headers[ci]] = std::move(c);
+            }
+        }
+
+        DataFrame df;
+        df.nombres_columnas = std::move(nombres);
+        df.columnas = std::move(columnas);
         if (!df.validar_simetria()) {
             return mk_err("parse", "CSV con columnas de longitudes distintas en: " + ruta, 0);
         }
 
-        return mk_df(df);
+        return mk_df(std::move(df));
+    }
+
+    if (nombre == "load_json") {
+        if (args.empty()) return mk_err("runtime", "load_json requiere una ruta de archivo", 0);
+        if (args[0]->tipo != ValorImpl::STR) return mk_err("runtime", "load_json requiere un string como ruta", 0);
+
+        std::string ruta = args[0]->str_val;
+        std::ifstream archivo(ruta);
+        if (!archivo.is_open()) {
+            return mk_err("io", "No se pudo abrir el archivo: " + ruta, 0);
+        }
+
+        nlohmann::json j;
+        try {
+            j = nlohmann::json::parse(archivo);
+        } catch (const std::exception& e) {
+            return mk_err("parse", "JSON invalido en " + ruta + ": " + e.what(), 0);
+        }
+
+        if (!j.is_array() || j.empty()) {
+            return mk_err("parse", "load_json requiere un array no vacio de objetos en: " + ruta, 0);
+        }
+
+        // Collect all column names in order
+        std::vector<std::string> nombres;
+        for (const auto& item : j) {
+            if (!item.is_object()) continue;
+            for (auto it = item.begin(); it != item.end(); ++it) {
+                if (std::find(nombres.begin(), nombres.end(), it.key()) == nombres.end()) {
+                    nombres.push_back(it.key());
+                }
+            }
+        }
+        if (nombres.empty()) {
+            return mk_err("parse", "load_json: objetos sin propiedades en: " + ruta, 0);
+        }
+
+        size_t nc = nombres.size();
+        size_t nrows = j.size();
+
+        // Detect column types from first non-null value
+        std::vector<int> col_types(nc, 0); // 0=unset,1=num,2=bool,3=str
+        for (size_t ci = 0; ci < nc; ++ci) {
+            for (const auto& item : j) {
+                if (!item.contains(nombres[ci])) continue;
+                const auto& val = item[nombres[ci]];
+                if (val.is_null()) continue;
+                if (val.is_number()) { col_types[ci] = 1; break; }
+                if (val.is_boolean()) { col_types[ci] = 2; break; }
+                if (val.is_string()) { col_types[ci] = 3; break; }
+                col_types[ci] = 3; break;
+            }
+        }
+
+        // Build columns
+        std::map<std::string, Columna> columnas;
+        for (size_t ci = 0; ci < nc; ++ci) {
+            if (col_types[ci] == 1) {
+                Columna c("num");
+                c.nums.reserve(nrows);
+                c.null_bitmap.reserve(nrows);
+                for (const auto& item : j) {
+                    if (!item.contains(nombres[ci]) || item[nombres[ci]].is_null()) {
+                        c.nums.push_back(crear_null());
+                        c.null_bitmap.push_back(true);
+                    } else {
+                        c.nums.push_back(item[nombres[ci]].get<double>());
+                        c.null_bitmap.push_back(false);
+                    }
+                }
+                columnas[nombres[ci]] = std::move(c);
+            } else if (col_types[ci] == 2) {
+                Columna c("bool");
+                c.bools.reserve(nrows);
+                c.null_bitmap.reserve(nrows);
+                for (const auto& item : j) {
+                    if (!item.contains(nombres[ci]) || item[nombres[ci]].is_null()) {
+                        c.bools.push_back(false);
+                        c.null_bitmap.push_back(true);
+                    } else {
+                        c.bools.push_back(item[nombres[ci]].get<bool>());
+                        c.null_bitmap.push_back(false);
+                    }
+                }
+                columnas[nombres[ci]] = std::move(c);
+            } else {
+                Columna c("str");
+                c.strs.reserve(nrows);
+                c.null_bitmap.reserve(nrows);
+                for (const auto& item : j) {
+                    if (!item.contains(nombres[ci]) || item[nombres[ci]].is_null()) {
+                        c.strs.push_back("");
+                        c.null_bitmap.push_back(true);
+                    } else if (item[nombres[ci]].is_string()) {
+                        c.strs.push_back(item[nombres[ci]].get<std::string>());
+                        c.null_bitmap.push_back(false);
+                    } else {
+                        c.strs.push_back(item[nombres[ci]].dump());
+                        c.null_bitmap.push_back(false);
+                    }
+                }
+                columnas[nombres[ci]] = std::move(c);
+            }
+        }
+
+        DataFrame df;
+        df.nombres_columnas = std::move(nombres);
+        df.columnas = std::move(columnas);
+        return mk_df(std::move(df));
+    }
+
+    if (nombre == "load_xlsx") {
+        if (args.empty()) return mk_err("runtime", "load_xlsx requiere una ruta de archivo", 0);
+        if (args[0]->tipo != ValorImpl::STR) return mk_err("runtime", "load_xlsx requiere un string como ruta", 0);
+        int sheet = (args.size() >= 2 && args[1]->tipo == ValorImpl::NUM) ? (int)args[1]->num_val : 0;
+        DataFrame df = load_xlsx_file(args[0]->str_val, sheet);
+        if (df.nombres_columnas.empty()) {
+            return mk_err("io", "No se pudo leer XLSX: " + args[0]->str_val, 0);
+        }
+        return mk_df(std::move(df));
+    }
+
+    if (nombre == "save_xlsx") {
+        if (args.size() < 2) return mk_err("runtime", "save_xlsx requiere ruta y DataFrame", 0);
+        if (args[0]->tipo != ValorImpl::STR) return mk_err("runtime", "save_xlsx requiere un string como ruta", 0);
+        if (args[1]->tipo != ValorImpl::DF) return mk_err("runtime", "save_xlsx requiere un DataFrame", 0);
+        std::string msg = save_xlsx_file(args[0]->str_val, args[1]->df_val);
+        return mk_str(msg);
+    }
+
+    if (nombre == "save_csv") {
+        if (args.size() < 2) return mk_err("runtime", "save_csv requiere ruta y DataFrame", 0);
+        if (args[0]->tipo != ValorImpl::STR) return mk_err("runtime", "save_csv requiere un string como ruta", 0);
+        if (args[1]->tipo != ValorImpl::DF) return mk_err("runtime", "save_csv requiere un DataFrame", 0);
+
+        const DataFrame& df = args[1]->df_val;
+        char delim = ',';
+        if (args.size() >= 3 && args[2]->tipo == ValorImpl::STR && !args[2]->str_val.empty()) {
+            delim = args[2]->str_val[0];
+        }
+
+        std::ofstream out(args[0]->str_val);
+        if (!out.is_open()) return mk_err("io", "No se pudo crear: " + args[0]->str_val, 0);
+
+        for (size_t i = 0; i < df.nombres_columnas.size(); ++i) {
+            if (i > 0) out << delim;
+            out << df.nombres_columnas[i];
+        }
+        out << '\n';
+
+        size_t nrows = 0;
+        for (const auto& [name, col] : df.columnas) {
+            if (col.size() > nrows) nrows = col.size();
+        }
+
+        for (size_t ri = 0; ri < nrows; ++ri) {
+            for (size_t ci = 0; ci < df.nombres_columnas.size(); ++ci) {
+                if (ci > 0) out << delim;
+                const auto& col = df.columnas.at(df.nombres_columnas[ci]);
+                if (col.null_bitmap[ri]) {
+                    // empty
+                } else if (col.tipo == "num") {
+                    char buf[64];
+                    auto [ptr, ec] = std::to_chars(buf, buf + 64, col.nums[ri], std::chars_format::general, 15);
+                    if (ec == std::errc()) out.write(buf, ptr - buf);
+                } else if (col.tipo == "bool") {
+                    out << (col.bools[ri] ? "true" : "false");
+                } else {
+                    out << col.strs[ri];
+                }
+            }
+            out << '\n';
+        }
+        out.close();
+        return mk_str("Guardado CSV: " + args[0]->str_val + " (" + std::to_string(nrows) + " filas)");
     }
 
     if (nombre == "load_lib") {
@@ -1378,7 +2025,9 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         n.tipo = tipo;
         n.titulo = (a[1]->tipo == ValorImpl::STR) ? a[1]->str_val : tipo;
         const auto& df = a[0]->df_val;
-        for (const auto& [k, v] : df.columnas) n.series[k] = v;
+        for (const auto& [k, col] : df.columnas) {
+            if (col.tipo == "num") n.series[k] = col.nums;
+        }
         if (a.size() > 2 && a[2]->tipo == ValorImpl::STR) n.cols["x"] = a[2]->str_val;
         if (a.size() > 3 && a[3]->tipo == ValorImpl::STR) n.cols["y"] = a[3]->str_val;
         if (a.size() > 4 && a[4]->tipo == ValorImpl::NUM) n.nums["bins"] = a[4]->num_val;
@@ -1401,7 +2050,9 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         n.tipo = "histogram";
         n.titulo = (args[1]->tipo == ValorImpl::STR) ? args[1]->str_val : "histogram";
         const auto& df = args[0]->df_val;
-        for (const auto& [k, v] : df.columnas) n.series[k] = v;
+        for (const auto& [k, col] : df.columnas) {
+            if (col.tipo == "num") n.series[k] = col.nums;
+        }
         if (args[2]->tipo == ValorImpl::STR) n.cols["y"] = args[2]->str_val;
         if (args.size() > 3 && args[3]->tipo == ValorImpl::NUM) n.nums["bins"] = args[3]->num_val;
         grafo_actual_->nodes.push_back(std::move(n));
@@ -1417,7 +2068,9 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         n.tipo = "box_plot";
         n.titulo = (args[1]->tipo == ValorImpl::STR) ? args[1]->str_val : "box_plot";
         const auto& df = args[0]->df_val;
-        for (const auto& [k, v] : df.columnas) n.series[k] = v;
+        for (const auto& [k, col] : df.columnas) {
+            if (col.tipo == "num") n.series[k] = col.nums;
+        }
         if (args[2]->tipo == ValorImpl::STR) n.cols["y"] = args[2]->str_val;
         grafo_actual_->nodes.push_back(std::move(n));
         grafo_actual_->updated_at = static_cast<double>(std::time(nullptr));
@@ -1463,7 +2116,11 @@ ValorZeta Interpreter::evaluar_acceso_columnas(const NodoAST& nodo) {
         if (it == df_val->df_val.columnas.end()) {
             return mk_err("runtime", "Columna no encontrada: " + nodo.valor_texto, nodo.linea);
         }
-        return mk_vec(it->second);
+        const auto& col = it->second;
+        if (col.tipo == "num") return mk_vec(col.nums);
+        if (col.tipo == "str") return mk_str_vec(col.strs);
+        if (col.tipo == "bool") return mk_bool_vec(col.bools);
+        return mk_err("runtime", "Tipo de columna desconocido: " + col.tipo, nodo.linea);
     }
 
     return mk_err("runtime", "Acceso a columnas solo valido en DataFrames", nodo.linea);
@@ -1479,7 +2136,9 @@ ValorZeta Interpreter::evaluar_filtro_filas(const NodoAST& nodo) {
 
             for (const auto& [nombre, col] : df_val->df_val.columnas) {
                 if (i < col.size()) {
-                    ambito_fila->definir(nombre, mk_num(col[i]));
+                    if (col.tipo == "num") ambito_fila->definir(nombre, mk_num(col.nums[i]));
+                    else if (col.tipo == "str") ambito_fila->definir(nombre, mk_str(col.strs[i]));
+                    else if (col.tipo == "bool") ambito_fila->definir(nombre, mk_bool(col.bools[i]));
                 }
             }
 
@@ -1496,10 +2155,22 @@ ValorZeta Interpreter::evaluar_filtro_filas(const NodoAST& nodo) {
         }
 
         DataFrame resultado;
+        resultado.nombres_columnas = df_val->df_val.nombres_columnas;
         for (const auto& [nombre, col] : df_val->df_val.columnas) {
-            std::vector<double> nueva_col;
+            Columna nueva_col(col.tipo);
             for (size_t i = 0; i < col.size(); ++i) {
-                if (mascara[i]) nueva_col.push_back(col[i]);
+                if (mascara[i]) {
+                    if (col.tipo == "num") {
+                        nueva_col.nums.push_back(col.nums[i]);
+                        nueva_col.null_bitmap.push_back(col.null_bitmap[i]);
+                    } else if (col.tipo == "str") {
+                        nueva_col.strs.push_back(col.strs[i]);
+                        nueva_col.null_bitmap.push_back(col.null_bitmap[i]);
+                    } else if (col.tipo == "bool") {
+                        nueva_col.bools.push_back(col.bools[i]);
+                        nueva_col.null_bitmap.push_back(col.null_bitmap[i]);
+                    }
+                }
             }
             resultado.columnas[nombre] = std::move(nueva_col);
         }
@@ -1596,9 +2267,22 @@ ValorZeta Interpreter::evaluar_new(const NodoAST& nodo) {
 
     ValorZeta obj_val = mk_obj(obj);
 
-    // Call init method if exists
-    auto mit = class_def->metodos.find("init");
-    if (mit != class_def->metodos.end()) {
+    // Call init method if exists (walk inheritance chain)
+    ValorZeta init_method;
+    {
+        std::string cur_init = class_name;
+        while (!cur_init.empty()) {
+            auto cit_init = clases_definidas_.find(cur_init);
+            if (cit_init == clases_definidas_.end()) break;
+            auto mit_init = cit_init->second->metodos.find("init");
+            if (mit_init != cit_init->second->metodos.end()) {
+                init_method = mit_init->second;
+                break;
+            }
+            cur_init = cit_init->second->padre;
+        }
+    }
+    if (init_method) {
         std::vector<ValorZeta> args;
         args.push_back(obj_val);
         for (const auto& hijo : nodo.hijos) {
@@ -1606,7 +2290,7 @@ ValorZeta Interpreter::evaluar_new(const NodoAST& nodo) {
         }
         auto prev_this = this_actual_;
         this_actual_ = obj_val;
-        ValorZeta result = llamar_usuario(mit->second, args);
+        ValorZeta result = llamar_usuario(init_method, args);
         this_actual_ = prev_this;
         if (is_error(result)) return result;
     } else {

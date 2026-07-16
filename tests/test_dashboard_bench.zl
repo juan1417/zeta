@@ -1,0 +1,160 @@
+# tests/test_dashboard_bench.zl
+# Dashboard Creation Benchmark — all datasets
+# Measures: load → process → create scene → add nodes → save JSON
+
+print("==============================================")
+print("  DASHBOARD CREATION BENCHMARK")
+print("==============================================")
+
+# ==========================================
+# 1. IRIS (150 rows)
+# ==========================================
+print("\n--- Iris (150 rows × 5 cols) ---")
+$t0 = time()
+$df = load_csv("tests/iris.csv")
+$t_load = time() - $t0
+
+$t0 = time()
+$sc = scene("Iris Dashboard", "Zeta")
+layout("grid", 2, 10)
+add_metric("Samples", len($df), "", "#4caf50")
+add_metric("Avg Sepal", mean($df:sepal_length), "cm", "#2196f3")
+add_metric("Avg Petal", mean($df:petal_length), "cm", "#ff9800")
+add_metric("Species Count", 3, "", "#9c27b0")
+add_line_plot($df, "Sepal Length", "sepal_length", "sepal_width")
+add_scatter($df, "Petal L vs W", "petal_length", "petal_width")
+add_histogram($df, "Petal Length Dist", "petal_length", 10)
+add_box_plot($df, "Sepal Width Box", "sepal_width")
+$t_scene = time() - $t0
+
+$t0 = time()
+guardar_grafo("tests/bench_iris.json")
+$t_save = time() - $t0
+
+print("  Load:", format($t_load * 1000, 1), "ms")
+print("  Scene:", format($t_scene * 1000, 1), "ms")
+print("  Save:", format($t_save * 1000, 1), "ms")
+print("  Total:", format(($t_load + $t_scene + $t_save) * 1000, 1), "ms")
+print("  Nodes: 8")
+
+# ==========================================
+# 2. TITANIC (891 rows)
+# ==========================================
+print("\n--- Titanic (891 rows × 9 cols) ---")
+$t0 = time()
+$df = load_csv("tests/titanic_clean.csv")
+$t_load = time() - $t0
+
+$t0 = time()
+$sc = scene("Titanic Dashboard", "Zeta")
+layout("grid", 3, 8)
+add_metric("Passengers", len($df), "", "#4caf50")
+add_metric("Survivors", sum($df:Survived), "", "#2196f3")
+add_metric("Survival Rate", sum($df:Survived) / len($df) * 100, "%", "#ff9800")
+add_metric("Avg Fare", mean($df:Fare), "$", "#9c27b0")
+add_metric("Avg Age", mean($df:Age), "yrs", "#f44336")
+add_metric("Max Fare", max($df:Fare), "$", "#00bcd4")
+add_line_plot($df, "Fare by Passenger", "PassengerId", "Fare")
+add_bar_chart($df, "Class Distribution", "PassengerId", "Pclass")
+add_scatter($df, "Fare vs Age", "Fare", "Age")
+add_histogram($df, "Age Histogram", "Age", 12)
+add_histogram($df, "Fare Histogram", "Fare", 15)
+add_box_plot($df, "Fare Box", "Fare")
+add_box_plot($df, "Age Box", "Age")
+$t_scene = time() - $t0
+
+$t0 = time()
+guardar_grafo("tests/bench_titanic.json")
+$t_save = time() - $t0
+
+print("  Load:", format($t_load * 1000, 1), "ms")
+print("  Scene:", format($t_scene * 1000, 1), "ms")
+print("  Save:", format($t_save * 1000, 1), "ms")
+print("  Total:", format(($t_load + $t_scene + $t_save) * 1000, 1), "ms")
+print("  Nodes: 13")
+
+# ==========================================
+# 3. VENTAS_100K (100,000 rows)
+# ==========================================
+print("\n--- Ventas 100K (100K rows × 10 cols) ---")
+$t0 = time()
+$df = load_csv("tests/ventas_100k.csv")
+$t_load = time() - $t0
+
+$t0 = time()
+$sc = scene("Ventas 100K Dashboard", "Zeta")
+layout("grid", 3, 8, "#121212")
+add_metric("Total Revenue", sum($df:total), "$", "#4caf50")
+add_metric("Avg Sale", mean($df:total), "$", "#2196f3")
+add_metric("Avg Price", mean($df:precio_unitario), "$", "#ff9800")
+add_metric("Total Units", sum($df:cantidad), "units", "#9c27b0")
+add_metric("Max Sale", max($df:total), "$", "#f44336")
+add_metric("Transactions", len($df), "", "#00bcd4")
+add_line_plot($df, "Revenue by Transaction", "id", "total")
+add_bar_chart($df, "Price by Transaction", "id", "precio_unitario")
+add_scatter($df, "Price vs Qty", "precio_unitario", "cantidad")
+add_histogram($df, "Revenue Distribution", "total", 20)
+add_histogram($df, "Price Distribution", "precio_unitario", 15)
+add_box_plot($df, "Revenue Box", "total")
+add_box_plot($df, "Price Box", "precio_unitario")
+add_linear_regression($df, "Price-Quantity Regression", "precio_unitario", "cantidad")
+$t_scene = time() - $t0
+
+$t0 = time()
+guardar_grafo("tests/bench_ventas100k.json")
+$t_save = time() - $t0
+
+print("  Load:", format($t_load * 1000, 1), "ms")
+print("  Scene:", format($t_scene * 1000, 1), "ms")
+print("  Save:", format($t_save * 1000, 1), "ms")
+print("  Total:", format(($t_load + $t_scene + $t_save) * 1000, 1), "ms")
+print("  Nodes: 14")
+
+# ==========================================
+# 4. ADULT (48,842 rows)
+# ==========================================
+print("\n--- Adult Census (48K rows × 15 cols) ---")
+$t0 = time()
+$df = load_csv("tests/adult.csv")
+$t_load = time() - $t0
+
+$t0 = time()
+$sc = scene("Adult Census Dashboard", "Zeta")
+layout("grid", 3, 8)
+add_metric("Population", len($df), "", "#4caf50")
+add_metric("High Earners", sum($df:income == ">50K"), "", "#2196f3")
+add_metric("Avg Age", mean($df:age), "yrs", "#ff9800")
+add_metric("Avg Hours", mean($df:hours_per_week), "h/wk", "#9c27b0")
+add_metric("Total Gain", sum($df:capital_gain), "$", "#4caf50")
+add_metric("Total Loss", sum($df:capital_loss), "$", "#f44336")
+add_line_plot($df, "Age Distribution", "age", "hours_per_week")
+add_scatter($df, "Age vs Hours", "age", "hours_per_week")
+add_histogram($df, "Age Histogram", "age", 15)
+add_histogram($df, "Hours Histogram", "hours_per_week", 10)
+add_box_plot($df, "Hours Box", "hours_per_week")
+add_box_plot($df, "Age Box", "age")
+add_linear_regression($df, "Age-Hours Regression", "age", "hours_per_week")
+$t_scene = time() - $t0
+
+$t0 = time()
+guardar_grafo("tests/bench_adult.json")
+$t_save = time() - $t0
+
+print("  Load:", format($t_load * 1000, 1), "ms")
+print("  Scene:", format($t_scene * 1000, 1), "ms")
+print("  Save:", format($t_save * 1000, 1), "ms")
+print("  Total:", format(($t_load + $t_scene + $t_save) * 1000, 1), "ms")
+print("  Nodes: 13")
+
+# ==========================================
+# SUMMARY
+# ==========================================
+print("\n==============================================")
+print("  SUMMARY")
+print("==============================================")
+print("  Iris       (150 rows):    8 nodes")
+print("  Titanic    (891 rows):   13 nodes")
+print("  Ventas   (100K rows):   14 nodes")
+print("  Adult    (48K rows):    13 nodes")
+print("  All dashboards saved to tests/bench_*.json")
+print("==============================================")

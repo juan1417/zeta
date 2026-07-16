@@ -91,6 +91,16 @@ print(pow(3, 2))     # 9
 print(pow(2, 0.5))   # 1.41421 (raíz cuadrada via pow)
 ```
 
+### `format($num, $decimals)` → `str`
+
+Formatea un número con `$decimals` decimales. Útil para mostrar resultados legibles.
+
+```zeta
+print(format(3.14159, 2))    # "3.14"
+print(format(1000.0, 0))     # "1000"
+print(format(0.123456, 4))   # "0.1235"
+```
+
 ### `sqrt($x)` → `num`
 
 Raíz cuadrada. Devuelve `null` para $x < 0.
@@ -261,6 +271,45 @@ print(is_error($e))     # true
 print(is_error(42))      # false
 ```
 
+### `fill_null($vec, $default)` → `vec`
+
+Reemplaza todos los `null` de un vector con un valor por defecto. Devuelve un nuevo vector.
+
+```zeta
+$datos = <10, null, 30, null, 50>
+$limpio = fill_null($datos, 0)
+print($limpio)           # <10, 0, 30, 0, 50>
+
+# Con valor promedio
+$promedio = mean($datos)    # 30 (ignora nulls)
+$Lleno = fill_null($datos, $promedio)
+print($Lleno)               # <10, 30, 30, 30, 50>
+
+# En DataFrames: reemplazar nulls antes de procesar
+$df = load_csv("datos.csv")
+$df:ventas = fill_null($df:ventas, 0)
+print(sum($df:ventas))   # suma sin nulls
+```
+
+### `mk_null_val()` → `num`
+
+Devuelve un valor `null` (NaN). Útil para crear nulls explícitos en funciones.
+
+```zeta
+$x = mk_null_val()
+print(is_null($x))   # true
+
+fn safe_div($a, $b) {
+    if ($b == 0) {
+        return mk_null_val()
+    }
+    return $a / $b
+}
+
+print(safe_div(10, 0))   # null
+print(safe_div(10, 2))   # 5
+```
+
 ## 5.6. Diccionarios
 
 ### `keys($dict)` → `str_vec`
@@ -296,6 +345,38 @@ Primeras N filas/elementos.
 ```zeta
 print(head($datos, 3))       # DataFrame con 3 filas
 print(head(<1, 2, 3, 4, 5>)) # <1, 2, 3>
+```
+
+### `drop($df, $columna)` → `df`
+
+Elimina una columna del DataFrame y devuelve uno nuevo sin ella.
+
+```zeta
+$df = load_csv("datos.csv")
+print(keys($df))             # ["id", "nombre", "ventas", "gastos"]
+
+$df_limpio = drop($df, "id")
+print(keys($df_limpio))      # ["nombre", "ventas", "gastos"]
+
+# Encadenar múltiples drops
+$df_final = drop(drop($df, "id"), "timestamp")
+```
+
+### `drop_nan($df, $columna)` → `df`
+
+Elimina todas las filas donde la columna indicada tiene `null`. Devuelve un DataFrame nuevo.
+
+```zeta
+$df = load_csv("ventas.csv")
+print(len($df))              # 100
+
+# Eliminar filas con null en 'ventas'
+$df_limpio = drop_nan($df, "ventas")
+print(len($df_limpio))       # 85 (se eliminaron 15 filas con null)
+
+# Combinar con fill_null para limpieza completa
+$df:ingresos = fill_null($df:ingresos, 0)
+$df = drop_nan($df, "ventas")   # eliminar solo los que realmente faltan
 ```
 
 ## 5.8. Matrices y álgebra
@@ -388,17 +469,80 @@ serve($db, 8080, "reporte.html")
 
 ## 5.11. I/O
 
-### `load_csv($ruta)` → `df`
+### `load_csv($ruta, $delim=",")` → `df`
 
-Carga un CSV como DataFrame. Ver [I/O: CSV y datasets remotos](./docs/07-io.md).
+Carga un CSV/TSV como DataFrame. Ver [I/O](./07-io.md).
 
 ```zeta
 $df = load_csv("tests/datos.csv")
+$df_tsv = load_csv("datos.tsv", "\t")
+```
+
+### `load_json($ruta)` → `df`
+
+Carga un JSON (array de objetos) como DataFrame.
+
+```zeta
+$df = load_json("personas.json")
+print($df:nombre)
+```
+
+### `load_xlsx($ruta)` → `df`
+
+Carga un archivo Excel como DataFrame.
+
+```zeta
+$df = load_xlsx("reporte.xlsx")
+```
+
+### `save_csv($ruta, $df, $delim=",")`
+
+Guarda un DataFrame como CSV.
+
+```zeta
+save_csv("backup.csv", $df)
+save_csv("datos.tsv", $df, "\t")
+```
+
+### `save_xlsx($ruta, $df)`
+
+Guarda un DataFrame como Excel.
+
+```zeta
+save_xlsx("reporte.xlsx", $df)
+```
+
+### `guardar_grafo($ruta)`
+
+Guarda la escena actual como JSON.
+
+```zeta
+$scn = scene("Mi Dashboard", "zeta")
+add_metric($scn, "Total", 42)
+guardar_grafo("escena.json")
+```
+
+### `cargar_grafo($ruta)` → `scene`
+
+Carga una escena desde un JSON guardado.
+
+```zeta
+$scn = cargar_grafo("escena.json")
+```
+
+### `grafo_actual()` → `scene`
+
+Obtiene la escena actual (la última creada con `scene()`).
+
+```zeta
+$scn = scene("Test", "zeta")
+add_metric($scn, "X", 10)
+$current = grafo_actual()
 ```
 
 ### `load_lib($ruta, $dict_funciones)` → `str`
 
-Carga una librería nativa (`.so`/`.dll`) y registra funciones. Ver [C ABI](./docs/10-c-abi-loadlib.md).
+Carga una librería nativa (`.so`/`.dll`) y registra funciones. Ver [C ABI](./10-c-abi-loadlib.md).
 
 ```zeta
 load_lib("libtestnative.so", {
@@ -429,6 +573,17 @@ Crea un valor null explícitamente.
 ```zeta
 $z = mk_null_val()
 print(is_null($z))    # true
+```
+
+### `time()` → `num`
+
+Devuelve el timestamp actual en segundos (epoch time). Útil para medir tiempos de ejecución.
+
+```zeta
+$t0 = time()
+# ... operación larga ...
+$t1 = time()
+print("Tiempo:", $t1 - $t0, "segundos")
 ```
 
 ## 5.13. Tabla resumen rápida
@@ -467,6 +622,8 @@ print(is_null($z))    # true
 | `values` | dict | `values(dict)` | vec |
 | `select` | df | `select(df, str)` | vec |
 | `head` | df/vec | `head(x, [num])` | df/vec |
+| `drop` | df | `drop(df, str)` | df |
+| `drop_nan` | df | `drop_nan(df, str)` | df |
 | `transpose` | matriz | `transpose(matriz)` | matriz |
 | `dot` | matriz | `dot(vec, vec)` | num |
 | `map` | functional | `map(vec, fn)` | vec |
@@ -476,8 +633,16 @@ print(is_null($z))    # true
 | `metric` | viz | `metric(str, num)` | metrica |
 | `dashboard` | viz | `dashboard(str, [str])` | dashboard |
 | `serve` | viz | `serve(dashboard, [num], [str])` | str |
-| `load_csv` | io | `load_csv(str)` | df |
+| `load_csv` | io | `load_csv(str, [str])` | df |
+| `load_json` | io | `load_json(str)` | df |
+| `load_xlsx` | io | `load_xlsx(str)` | df |
+| `save_csv` | io | `save_csv(str, df, [str])` | null |
+| `save_xlsx` | io | `save_xlsx(str, df)` | null |
+| `guardar_grafo` | io | `guardar_grafo(str)` | null |
+| `cargar_grafo` | io | `cargar_grafo(str)` | scene |
+| `grafo_actual` | io | `grafo_actual()` | scene |
 | `load_lib` | ffi | `load_lib(str, dict)` | str |
 | `mk_err` | errors | `mk_err(str, str)` | err |
 | `mk_null_val` | null | `mk_null_val()` | num (NaN) |
+| `time` | sys | `time()` | num |
 | `print` | io | `print(...)` | null |

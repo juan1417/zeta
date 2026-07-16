@@ -1,0 +1,29 @@
+$data = load_json("tests/test_data.json")
+
+print("Loaded JSON as DataFrame")
+print("Shape:")
+print(len($data))
+
+$name = $data:name
+$age = $data:age
+$score = $data:score
+$active = $data:active
+
+print("Names:")
+print($name)
+print("Ages:")
+print($age)
+print("Scores:")
+print($score)
+print("Active:")
+print($active)
+
+print("Mean age:")
+print(mean($age))
+print("Mean score:")
+print(mean($score))
+print("Sum of active:")
+print(sum($active))
+
+print("========================================")
+print("LOAD_JSON TEST PASSED")

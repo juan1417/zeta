@@ -1,0 +1,57 @@
+# tests/test_dataframe_types.zl
+# Verifica features de Fase 2+3
+
+print("=== Test Fase 2+3 ===")
+
+# --- Fase 2: DataFrame creation from dict ---
+$df = {
+    "edad": <25, 30, 35, 28>,
+    "puntaje": <9.5, 8.0, 7.5, 10.0>
+}
+
+print("DataFrame:", $df)
+print("Filas:", len($df))
+
+# Acceso a columnas
+print("Edades:", $df:edad)
+print("Puntajes:", $df:puntaje)
+
+# head con multi-tipo
+$primeros = head($df, 2)
+print("Primeras 2 filas:", $primeros)
+
+# --- Fase 3: fill_null ---
+$v = <1, null, 3, null, 5>
+print("Original:", $v)
+$lleno = fill_null($v, 0)
+print("Fill nulls:", $lleno)
+
+# --- Fase 3: is_null universal ---
+print("is_null(1):", is_null(1))
+print("is_null(null):", is_null(null))
+print("is_null(\"abc\"):", is_null("abc"))
+print("is_null(\"\"):", is_null(""))
+
+# --- Fase 3: Coercion num + str ---
+$x = 42 + " items"
+print("Coercion num+str:", $x)
+
+# --- Fase 3: Coercion bool + num ---
+$y = true + 10
+print("Coercion bool+num:", $y)
+
+# --- Fase 3: Coercion bool + str ---
+$z = false + " value"
+print("Coercion bool+str:", $z)
+
+# --- Coercion en comparaciones ---
+print("3 > true:", 3 > true)
+print("2 == false:", 2 == false)
+
+# --- Stats con nulls ---
+$datos = <10, null, 30, null, 50>
+print("mean:", mean($datos))
+print("sum:", sum($datos))
+print("count:", count($datos))
+
+print("OK")

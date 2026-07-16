@@ -69,7 +69,7 @@ for ($n in $nums) {
 
 # Iterar con índice (usando range + indexado)
 for ($i in range(len($nums))) {
-    print("índice", $i, "valor", $nums($i))
+    print("índice", $i, "valor", $nums[$i])
 }
 ```
 
@@ -213,7 +213,7 @@ $add = fn($a, $b) { return $a + $b }
 print($add(3, 4))    # 7  (pero también funciona add(3, 4))
 ```
 
-Para invocar una función almacenada en una variable, usa el nombre **sin sigil**: `f(args)`. La sintaxis `$f(args)` es acceso por índice (lee `args`-ésimo elemento del valor almacenado en `$f`).
+Para invocar una función almacenada en una variable, usa el nombre **sin sigil**: `f(args)`. La sintaxis `$f[i]` es acceso por índice (lee el i-ésimo elemento del valor almacenado en `$f`).
 
 ### Lambdas recursivas
 
@@ -280,7 +280,7 @@ Si `return` se omite, la función retorna `null` al final del bloque.
 ```zeta
 fn buscar($vec, $target) {
     for ($i in range(len($vec))) {
-        if ($vec($i) == $target) {
+        if ($vec[$i] == $target) {
             return $i
         }
     }
@@ -363,7 +363,7 @@ $cuadrados = map($positivos, cuadrado)          # <4, 16>
 fn buscar_en_df($df, $col, $target) {
     $vals = $df:$col
     for ($i in range(len($vals))) {
-        if ($vals($i) == $target) {
+        if ($vals[$i] == $target) {
             return $i
         }
     }

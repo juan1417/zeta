@@ -1,0 +1,163 @@
+# tests/test_pos_system.zl
+# POS System: 10,000 sales records processing test
+
+print("==============================================")
+print("  POS SYSTEM - 10,000 RECORDS PROCESSING")
+print("==============================================")
+
+# ==========================================
+# 1. GENERATE 10,000 SALES RECORDS
+# ==========================================
+print("\n--- 1. Generating data ---")
+
+$n = 10000
+$prices = <0>
+$quantities = <0>
+$sales_amounts = <0>
+# Remove initial dummy
+$prices = <>
+$quantities = <>
+$sales_amounts = <>
+
+for ($i in range(1, $n)) {
+    $p = ($i % 500) * 0.10 + 10
+    $q = ($i % 10) + 1
+    $prices = push($prices, $p)
+    $quantities = push($quantities, $q)
+    $sales_amounts = push($sales_amounts, $p * $q)
+}
+
+print("Generated", len($prices), "records")
+print("Sample prices (first 10):", head($prices, 10))
+print("Sample quantities (first 10):", head($quantities, 10))
+
+# ==========================================
+# 2. BASIC STATISTICS
+# ==========================================
+print("\n--- 2. Basic Statistics ---")
+
+print("Total records:", count($sales_amounts))
+print("Sum of all sales:", sum($sales_amounts))
+print("Mean sale amount:", format(mean($sales_amounts), 2))
+print("Min sale:", min($sales_amounts))
+print("Max sale:", max($sales_amounts))
+print("Stddev:", format(stddev($sales_amounts), 2))
+
+# ==========================================
+# 3. AGGREGATIONS
+# ==========================================
+print("\n--- 3. Aggregations ---")
+
+print("Average item price:", format(mean($prices), 2))
+print("Average qty per tx:", format(mean($quantities), 2))
+print("Total units sold:", sum($quantities))
+
+# ==========================================
+# 4. METRICS
+# ==========================================
+print("\n--- 4. Metrics ---")
+
+$revenue_per_unit = sum($sales_amounts) / sum($quantities)
+print("Revenue per unit:", format($revenue_per_unit, 2))
+
+# ==========================================
+# 5. DATAFRAME CONSTRUCTION (100 records)
+# ==========================================
+print("\n--- 5. DataFrame (100 records) ---")
+
+$n2 = 100
+$df_prices = <0>
+$df_qty = <0>
+$df_totals = <0>
+$df_ids = <0>
+$df_prices = <>
+$df_qty = <>
+$df_totals = <>
+$df_ids = <>
+
+for ($i in range(1, $n2)) {
+    $p = ($i % 50) * 3.5 + 15
+    $q = ($i % 8) + 1
+    $df_prices = push($df_prices, $p)
+    $df_qty = push($df_qty, $q)
+    $df_totals = push($df_totals, $p * $q)
+    $df_ids = push($df_ids, $i)
+}
+
+$df_sales = {
+    "id": $df_ids,
+    "price": $df_prices,
+    "quantity": $df_qty,
+    "total": $df_totals
+}
+
+print("Sales DataFrame rows:", len($df_sales))
+print("Head:", head($df_sales, 3))
+print("Mean price:", format(mean($df_sales:price), 2))
+print("Total revenue (100):", sum($df_sales:total))
+
+# ==========================================
+# 6. TOP-N ANALYSIS
+# ==========================================
+print("\n--- 6. Top-N Analysis ---")
+
+print("Max sale:", max($df_sales:total))
+print("Min sale:", min($df_sales:total))
+print("Revenue stddev:", format(stddev($df_sales:total), 2))
+print("Price stddev:", format(stddev($df_sales:price), 2))
+
+# ==========================================
+# 7. BULK 10K PROCESSING
+# ==========================================
+print("\n--- 7. Bulk 10K Processing ---")
+
+$bulk_sum = sum($sales_amounts)
+$bulk_mean = mean($sales_amounts)
+$bulk_tax = $bulk_sum * 0.19
+
+print("Bulk sum:", $bulk_sum)
+print("Bulk mean:", format($bulk_mean, 2))
+print("Tax total (19%):", format($bulk_tax, 2))
+
+# ==========================================
+# 8. DASHBOARD SCENE
+# ==========================================
+print("\n--- 8. POS Dashboard ---")
+
+$sc = scene("POS System Dashboard", "Zeta POS")
+layout("grid", 3, 8, "#121212")
+
+add_metric("Total Revenue", sum($df_sales:total), "$", "#4caf50")
+add_metric("Avg Sale", mean($df_sales:total), "$", "#2196f3")
+add_metric("Avg Price", mean($df_sales:price), "$", "#ff9800")
+add_metric("Total Units", sum($df_sales:quantity), "units", "#9c27b0")
+add_metric("Max Sale", max($df_sales:total), "$", "#f44336")
+add_metric("Transactions", len($df_sales:total), "", "#00bcd4")
+
+add_line_plot($df_sales, "Revenue by Transaction", "id", "total")
+add_bar_chart($df_sales, "Price by Transaction", "id", "price")
+add_scatter($df_sales, "Price vs Quantity", "price", "quantity")
+add_histogram($df_sales, "Revenue Distribution", "total", 10)
+add_box_plot($df_sales, "Revenue Box Plot", "total")
+
+print("Dashboard:", guardar_grafo("tests/test_pos_dashboard.json"))
+
+# ==========================================
+# 9. PRODUCT CATALOG (strings)
+# ==========================================
+print("\n--- 9. Products ---")
+
+$products = <"Laptop", "Mouse", "Keyboard", "Monitor", "Headset", "Webcam", "Tablet", "Phone", "Cable", "Charger">
+print("Products:", $products)
+print("Count:", len($products))
+print("Sorted:", sort($products))
+
+# ==========================================
+# SUMMARY
+# ==========================================
+print("\n==============================================")
+print("  POS TEST COMPLETE")
+print("  Records processed:", len($prices))
+print("  Revenue:", format(sum($sales_amounts), 0))
+print("  Tax (19%):", format(sum($sales_amounts) * 0.19, 0))
+print("==============================================")

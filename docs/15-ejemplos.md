@@ -29,14 +29,24 @@ Cada ejemplo es un script **completo y ejecutable**. Copia el contenido a un arc
 | 17 | [Ordenamiento y algoritmos](#17-ordenamiento-y-algoritmos) | `sort`, `unique`, búsqueda binaria, quicksort recursivo, asignación por índice | 🔴 |
 | 18 | [Cliente HTTP via libcurl](#18-cliente-http-via-libcurl-loadlib) | `load_lib`, libcurl, wrapper C con strings | 🟡 |
 | 19 | [Programación orientada a objetos](#19-programación-orientada-a-objetos) | `class`, `new`, `extends`, `$self`, métodos, herencia simple | 🟢 |
+| 20 | [Formateo de números](#20-formateo-de-números) | `format($num, $decimals)` | 🟢 |
+| 21 | [Operaciones con matrices](#21-operaciones-con-matrices) | `<<>>`, `transpose`, `dot`, acceso `[i,j]` | 🟡 |
+| 22 | [Rutas HTTP personalizadas](#22-rutas-http-definidas-por-el-usuario) | `route()`, `serve()`, request/response | 🟠 |
+| 23 | [Módulos con clases](#23-módulos-con-clases) | `include`, `export`, clases en `.zl` | 🟠 |
+| 24 | [Pipeline completo](#24-pipeline-completo-con-todo-junto) | módulos + clases + errores + ternario + DataFrame | 🔴 |
+| 25 | [Limpieza de datos](#25-limpieza-de-datos-completa) | `drop`, `drop_nan`, `fill_null`, `unique`, `sort` | 🟡 |
+| 26 | [Medición de tiempos](#26-medición-de-tiempos) | `time()`, benchmark | 🟢 |
 
 ## Índice por dominio
 
-- **Análisis de datos**: [8](#8-cargar-csv-y-analizar), [9](#9-filtrar-y-transformar-dataframes), [11](#11-crear-un-dashboard-completo), [15](#15-pipeline-etl-completo)
+- **Análisis de datos**: [8](#8-cargar-csv-y-analizar), [9](#9-filtrar-y-transformar-dataframes), [11](#11-crear-un-dashboard-completo), [15](#15-pipeline-etl-completo), [24](#24-pipeline-completo-con-todo-junto), [25](#25-limpieza-de-datos-completa)
 - **Visualización**: [11](#11-crear-un-dashboard-completo)
 - **Algoritmos**: [16](#16-regresión-lineal-manual), [17](#17-ordenamiento-y-algoritmos)
-- **Sistemas**: [12](#12-cargar-librería-nativa-c-abi), [18](#18-datasets-remotos)
-- **Idioms del lenguaje**: [7](#7-funciones-de-orden-superior), [13](#13-manejo-de-errores-con-), [14](#14-ternario-vectorizado)
+- **Sistemas**: [12](#12-cargar-librería-nativa-c-abi), [22](#22-rutas-http-definidas-por-el-usuario), [26](#26-medición-de-tiempos)
+- **Idioms del lenguaje**: [7](#7-funciones-de-orden-superior), [13](#13-manejo-de-errores-con-), [14](#14-ternario-vectorizado), [20](#20-formateo-de-números)
+- **OOP y módulos**: [19](#19-programación-orientada-a-objetos), [23](#23-módulos-con-clases)
+- **Matrices y álgebra**: [21](#21-operaciones-con-matrices)
+- **Limpieza de datos**: [25](#25-limpieza-de-datos-completa)
 
 ---
 
@@ -80,8 +90,8 @@ $mas = $nums + <6, 7, 8>
 print("Concatenado:", $mas)
 
 # Acceso por índice
-print("Primero:", $nums(0))
-print("Último:", $nums(4))
+print("Primero:", $nums[0])
+print("Último:", $nums[4])
 
 # Vector vacío
 $vacio = <>
@@ -226,7 +236,7 @@ for ($f in $frutas) {
 # Bucle con índice (range + acceso)
 $nums = <10, 20, 30, 40>
 for ($i in range(len($nums))) {
-    print("indice", $i, "valor", $nums($i))
+    print("indice", $i, "valor", $nums[$i])
 }
 ```
 
@@ -331,7 +341,7 @@ print("fib(20) (iter) =", fib_iter(20))
 # Búsqueda lineal con return temprano
 fn buscar($vec, $target) {
     for ($i in range(len($vec))) {
-        if ($vec($i) == $target) {
+        if ($vec[$i] == $target) {
             return $i
         }
     }
@@ -475,7 +485,7 @@ fn maximo($acc, $x) {
 
 print("Suma:", reduce($nums, sumar, 0))              # 15
 print("Producto:", reduce($nums, multiplicar, 1))    # 120
-print("Maximo:", reduce($nums, maximo, $nums(0)))    # 5
+print("Maximo:", reduce($nums, maximo, $nums[0]))    # 5
 
 # Encadenamiento: filter -> map (con lambdas anidadas)
 $positivos = filter(<-2, -1, 0, 1, 2, 3>, fn($x) { return $x > 0 })
@@ -491,7 +501,7 @@ print("composed =", $composed)    # <4, 6, 8, 10>
 
 # Mapeo manual (sin map) — útil para entender qué hace map por dentro.
 # Para llamar a la función pasada como parametro usamos el nombre sin sigil
-# (la sintaxis $var(args) es acceso por indice, no llamada; cb(args) sí lo es).
+# (la sintaxis $var[i] es acceso por indice, no llamada; cb(args) sí lo es).
 fn map_manual($vec, $cb) {
     $resultado = <0.0>
     for ($x in $vec) {
@@ -581,7 +591,7 @@ print("Promedio:", mean($gastos))
 # Análisis cruzado: margen
 $margen = <0.0>
 for ($i in range(len($ventas))) {
-    $margen = push($margen, $ventas($i) - $gastos($i))
+    $margen = push($margen, $ventas[$i] - $gastos[$i])
 }
 print("--- Margen ---")
 print("Suma margen:", sum($margen))
@@ -590,7 +600,7 @@ print("Margen promedio:", mean($margen))
 # Ratio gastos/ventas (en %)
 $ratio = <0.0>
 for ($i in range(len($ventas))) {
-    $ratio = push($ratio, $gastos($i) / $ventas($i) * 100)
+    $ratio = push($ratio, $gastos[$i] / $ventas[$i] * 100)
 }
 print("Ratio promedio %:", mean($ratio))
 ```
@@ -690,8 +700,8 @@ fn stddev($vec) {
     if ($n == 0) { return 0 }
     $suma = 0
     for ($i in range($n)) {
-        if (!is_null($vec($i))) {
-            $d = $vec($i) - $m
+        if (!is_null($vec[$i])) {
+            $d = $vec[$i] - $m
             $suma = $suma + $d * $d
         }
     }
@@ -706,8 +716,8 @@ fn correlation($x, $y) {
     $dx2 = 0
     $dy2 = 0
     for ($i in range($n)) {
-        $dx = $x($i) - $mx
-        $dy = $y($i) - $my
+        $dx = $x[$i] - $mx
+        $dy = $y[$i] - $my
         $num = $num + $dx * $dy
         $dx2 = $dx2 + $dx * $dx
         $dy2 = $dy2 + $dy * $dy
@@ -954,7 +964,7 @@ if (is_error($resultado)) {
 # Patrón 3: errores como datos en vectores
 $operaciones = <dividir(10, 2), dividir(10, 0), dividir(10, 5)>
 for ($i in range(len($operaciones))) {
-    $r = $operaciones($i)
+    $r = $operaciones[$i]
     if (is_error($r)) {
         print("Operacion", $i, "fallo:", $r.mensaje)
     } else {
@@ -967,7 +977,7 @@ $inputs = <10, 20, 0, 40, 0, 60>
 $exitos = <0.0>
 $fallos = 0
 for ($i in range(len($inputs))) {
-    $r = dividir(100, $inputs($i))
+    $r = dividir(100, $inputs[$i])
     if (is_error($r)) {
         $fallos = $fallos + 1
     } else {
@@ -1009,7 +1019,7 @@ print("Mask:", $mask)    # <false, true, false, true, false>
 # (ternario con VEC aplica elemento a elemento)
 $limpio = <0.0>
 for ($i in range(len($nums))) {
-    $limpio = push($limpio, is_null($nums($i)) ? 0 : $nums($i))
+    $limpio = push($limpio, is_null($nums[$i]) ? 0 : $nums[$i])
 }
 print("Limpio:", $limpio)    # <1, 0, 3, 0, 5>
 
@@ -1017,7 +1027,7 @@ print("Limpio:", $limpio)    # <1, 0, 3, 0, 5>
 $media = mean($nums)
 $imputado = <0.0>
 for ($i in range(len($nums))) {
-    $imputado = push($imputado, is_null($nums($i)) ? $media : $nums($i))
+    $imputado = push($imputado, is_null($nums[$i]) ? $media : $nums[$i])
 }
 print("Media:", $media)
 print("Imputado:", $imputado)
@@ -1026,7 +1036,7 @@ print("Imputado:", $imputado)
 $valores = <-50, 50, 150, 75, -10>
 $clip = <0.0>
 for ($i in range(len($valores))) {
-    $v = $valores($i)
+    $v = $valores[$i]
     if ($v < 0) { $v = 0 }
     if ($v > 100) { $v = 100 }
     $clip = push($clip, $v)
@@ -1043,7 +1053,7 @@ $max_v = max($valores)
 $range = $max_v - $min_v
 $norm = <0.0>
 for ($i in range(len($valores))) {
-    $norm = push($norm, normalize_one($valores($i), $min_v, $range))
+    $norm = push($norm, normalize_one($valores[$i], $min_v, $range))
 }
 print("Normalizado:", $norm)
 ```
@@ -1090,17 +1100,17 @@ $gastos = $con_datos:gastos
 $margen = <0.0>
 $margen_pct = <0.0>
 for ($i in range(len($ventas))) {
-    $m = $ventas($i) - $gastos($i)
+    $m = $ventas[$i] - $gastos[$i]
     $margen = push($margen, $m)
-    $margen_pct = push($margen_pct, $m / $ventas($i) * 100)
+    $margen_pct = push($margen_pct, $m / $ventas[$i] * 100)
 }
 
 # Clasificar margen: alto / medio / bajo
 $categoria = <0.0>
 for ($i in range(len($margen))) {
-    if ($margen($i) > 1000) {
+    if ($margen[$i] > 1000) {
         $categoria = push($categoria, "alto")
-    } else if ($margen($i) > 500) {
+    } else if ($margen[$i] > 500) {
         $categoria = push($categoria, "medio")
     } else {
         $categoria = push($categoria, "bajo")
@@ -1175,8 +1185,8 @@ $sum_y = sum($y)
 $sum_xy = 0
 $sum_x2 = 0
 for ($i in range($nx)) {
-    $sum_xy = $sum_xy + $x($i) * $y($i)
-    $sum_x2 = $sum_x2 + $x($i) * $x($i)
+    $sum_xy = $sum_xy + $x[$i] * $y[$i]
+    $sum_x2 = $sum_x2 + $x[$i] * $x[$i]
 }
 
 # Fórmula: slope = (n·Σxy - Σx·Σy) / (n·Σx² - (Σx)²)
@@ -1193,7 +1203,7 @@ fn predecir($xi, $m, $b) {
 }
 $prediccion = <0.0>
 for ($i in range($nx)) {
-    $prediccion = push($prediccion, predecir($x($i), $slope, $intercept))
+    $prediccion = push($prediccion, predecir($x[$i], $slope, $intercept))
 }
 print("Predicciones:", $prediccion)
 
@@ -1202,8 +1212,8 @@ $ss_tot = 0
 $ss_res = 0
 $mean_y = mean($y)
 for ($i in range($nx)) {
-    $ss_tot = $ss_tot + ($y($i) - $mean_y) * ($y($i) - $mean_y)
-    $ss_res = $ss_res + ($y($i) - $prediccion($i)) * ($y($i) - $prediccion($i))
+    $ss_tot = $ss_tot + ($y[$i] - $mean_y) * ($y[$i] - $mean_y)
+    $ss_res = $ss_res + ($y[$i] - $prediccion[$i]) * ($y[$i] - $prediccion[$i])
 }
 $r2 = 1 - $ss_res / $ss_tot
 print("R²:", $r2)
@@ -1255,9 +1265,9 @@ fn busqueda_binaria($vec, $target) {
     while ($lo <= $hi) {
         $mid = ($lo + $hi) / 2
         $mid = floor($mid)
-        if ($vec($mid) == $target) {
+        if ($vec[$mid] == $target) {
             return $mid
-        } else if ($vec($mid) < $target) {
+        } else if ($vec[$mid] < $target) {
             $lo = $mid + 1
         } else {
             $hi = $mid - 1
@@ -1273,23 +1283,23 @@ print("buscar 1:", busqueda_binaria($ordenado, 1))
 print("buscar 19:", busqueda_binaria($ordenado, 19))
 print("buscar 8:", busqueda_binaria($ordenado, 8))    # -1 (no está)
 
-# Quicksort usando asignación por índice ($vec(i) = valor)
+# Quicksort usando asignación por índice ($vec[i] = valor)
 fn partition($vec, $lo, $hi) {
-    $pivot = $vec($hi)
+    $pivot = $vec[$hi]
     $i = $lo - 1
     for ($j in range($lo, $hi)) {
-        if ($vec($j) <= $pivot) {
+        if ($vec[$j] <= $pivot) {
             $i = $i + 1
-            # swap $vec($i) y $vec($j)
-            $tmp = $vec($i)
-            $vec($i) = $vec($j)
-            $vec($j) = $tmp
+            # swap $vec[$i] y $vec[$j]
+            $tmp = $vec[$i]
+            $vec[$i] = $vec[$j]
+            $vec[$j] = $tmp
         }
     }
-    # swap $vec($i + 1) y $vec($hi)
-    $tmp = $vec($i + 1)
-    $vec($i + 1) = $vec($hi)
-    $vec($hi) = $tmp
+    # swap $vec[$i + 1] y $vec[$hi]
+    $tmp = $vec[$i + 1]
+    $vec[$i + 1] = $vec[$hi]
+    $vec[$hi] = $tmp
     return $i + 1
 }
 
@@ -1444,7 +1454,7 @@ print("  status:", http_status("https://example.com"))
 
 6. **Recursión y lambdas**: tanto la recursión como las lambdas anónimas (`fn($x) { ... }`) funcionan correctamente. Para recursión muy profunda, considera aumentar el stack del sistema (`ulimit -s unlimited`).
 
-7. **Asignación por índice**: `$vec(i) = $valor` (vectores) y `$d["k"] = $valor` (dicts) y `$m[i, j] = $valor` (matrices) funcionan. Se puede usar para mutación in-place dentro de loops.
+7. **Asignación por índice**: `$vec[i] = $valor` (vectores) y `$d["k"] = $valor` (dicts) y `$m[i, j] = $valor` (matrices) funcionan. Se puede usar para mutación in-place dentro de loops.
 
 8. **OOP**: `class`, `new`, `extends`, metodos con `$self`, y campos con `$obj.campo` / `$obj.campo = valor` funcionan. Ver Ejemplo 19.
 
@@ -1533,4 +1543,338 @@ raza: mestizo
 edad: 0.000000
 punto: 3.000000 4.000000
 magnitud: 5.000000
+```
+
+---
+
+## Ejemplo 20: Formateo de números
+
+```zeta
+# 20_format.zl
+$precio = 1234.5678
+$porcentaje = 0.15678
+
+# Decimales por defecto (6)
+print($precio)             # 1234.567800
+
+# Controlar decimales con format()
+print(format($precio, 2))     # 1234.57
+print(format($precio, 0))     # 1235
+print(format($porcentaje, 4)) # 0.1568
+
+# En un pipeline de datos
+$df = load_csv("tests/datos.csv")
+$total = sum($df:ventas)
+print("Total:", format($total, 2))
+print("Promedio:", format(mean($df:ventas), 1))
+```
+
+**Salida esperada**:
+
+```
+1234.567800
+1234.57
+1235
+0.1568
+```
+
+---
+
+## Ejemplo 21: Operaciones con matrices
+
+```zeta
+# 21_matrices.zl
+# Crear matrices
+$A = <<1, 2, 3>, <4, 5, 6>>
+$B = <<7, 8, 9>, <10, 11, 12>>
+
+print("A:", $A)
+print("B:", $B)
+
+# Acceso por índice
+print("A[0,0]:", $A[0, 0])    # 1
+print("A[1,2]:", $A[1, 2])    # 6
+
+# Transpuesta
+$T = transpose($A)
+print("Transpuesta:", $T)
+
+# Producto punto (dot product)
+$v1 = <1, 2, 3>
+$v2 = <4, 5, 6>
+print("Dot:", dot($v1, $v2))  # 32
+
+# Multiplicación de matrices (si dimensiones coinciden)
+$C = <<1, 2>, <3, 4>>
+$D = <<5, 6>, <7, 8>>
+# Nota: dot() hace producto punto de vectores
+# Para multiplicar matrices completa, usa la notación manual
+```
+
+**Salida esperada**:
+
+```
+A: <<1, 2, 3>, <4, 5, 6>>
+B: <<7, 8, 9>, <10, 11, 12>>
+A[0,0]: 1
+A[1,2]: 6
+Transpuesta: <<1, 4>, <2, 5>, <3, 6>>
+Dot: 32
+```
+
+---
+
+## Ejemplo 22: Rutas HTTP definidas por el usuario
+
+```zeta
+# 22_routes.zl
+# Registrar una ruta personalizada en el servidor
+
+route("GET", "/api/saludo", fn($req) {
+    $nombre = $req:query:name
+    if (is_null($nombre)) {
+        $nombre = "Mundo"
+    }
+    return {"saludo": "Hola, " + $nombre + "!"}
+})
+
+route("POST", "/api/calcular", fn($req) {
+    $a = $req:body:a
+    $b = $req:body:b
+    $op = $req:body:op
+
+    if ($op == "suma") {
+        return {"resultado": $a + $b}
+    }
+    if ($op == "multiplicar") {
+        return {"resultado": $a * $b}
+    }
+    return mk_err("operacion_invalida", "Op no soportada: " + $op)
+})
+
+# Iniciar el server
+serve(8080)
+```
+
+Probar con curl:
+
+```bash
+# Saludo
+curl "http://localhost:8080/api/saludo?name=Zeta"
+# {"saludo": "Hola, Zeta!"}
+
+# Calculadora
+curl -X POST http://localhost:8080/api/calcular \
+  -H "Content-Type: application/json" \
+  -d '{"a": 10, "b": 5, "op": "suma"}'
+# {"resultado": 15}
+```
+
+---
+
+## Ejemplo 23: Módulos con clases
+
+```zeta
+# lib/geometry.zl
+# Módulo que exporta clases
+
+class Point {
+    $x = 0
+    $y = 0
+    fn init($self, $x0, $y0) {
+        $self.x = $x0
+        $self.y = $y0
+    }
+    fn distance($self, $other) {
+        $dx = $self.x - $other.x
+        $dy = $self.y - $other.y
+        return sqrt($dx * $dx + $dy * $dy)
+    }
+    fn to_string($self) {
+        return "Point(" + format($self.x, 2) + ", " + format($self.y, 2) + ")"
+    }
+}
+
+class Rectangle {
+    $origin = null
+    $width = 0
+    $height = 0
+    fn init($self, $x, $y, $w, $h) {
+        $self.origin = new Point($x, $y)
+        $self.width = $w
+        $self.height = $h
+    }
+    fn area($self) {
+        return $self.width * $self.height
+    }
+    fn contains($self, $pt) {
+        $dx = $pt.x - $self.origin.x
+        $dy = $pt.y - $self.origin.y
+        return $dx >= 0 && $dx <= $self.width && $dy >= 0 && $dy <= $self.height
+    }
+}
+
+export { Point, Rectangle }
+```
+
+Script que usa el módulo:
+
+```zeta
+# main.zl
+include "lib/geometry"::{Point, Rectangle}
+
+$p1 = new Point(0, 0)
+$p2 = new Point(3, 4)
+print($p1.to_string())                # Point(0.00, 0.00)
+print("Distancia:", $p1.distance($p2))  # 5
+
+$rect = new Rectangle(0, 0, 10, 5)
+print("Area:", $rect.area())           # 50
+
+$inside = new Point(5, 3)
+$outside = new Point(15, 3)
+print("Dentro:", $rect.contains($inside))   # true
+print("Fuera:", $rect.contains($outside))   # false
+```
+
+**Salida esperada**:
+
+```
+Point(0.00, 0.00)
+Distancia: 5
+Area: 50
+Dentro: true
+Fuera: false
+```
+
+---
+
+## Ejemplo 24: Pipeline completo con todo junto
+
+```zeta
+# 24_pipeline_completo.zl
+# Ejemplo que combina: módulos, clases, errores, ternario, DataFrames
+
+include "lib/geometry"::{Point, Rectangle}
+
+# 1. Cargar datos
+$df = load_csv("tests/datos.csv")?
+print("Cargadas", len($df), "filas")
+
+# 2. Validar columnas
+if (is_error($df:ventas)) {
+    print("ERROR: columna 'ventas' no encontrada")
+    return
+}
+
+# 3. Limpiar datos: fill_null con promedio
+$promedio = mean($df:ventas)
+$df:ventas = fill_null($df:ventas, $promedio)
+print("Nulls reemplazados por promedio:", format($promedio, 2))
+
+# 4. Calcular métricas
+$total = sum($df:ventas)
+$minimo = min($df:ventas)
+$maximo = max($df:ventas)
+$desv = stddev($df:ventas)
+
+print("Total:", format($total, 2))
+print("Min:", format($minimo, 2))
+print("Max:", format($maximo, 2))
+print("StdDev:", format($desv, 2))
+
+# 5. Usar clase del módulo
+$p1 = new Point(0, 0)
+$p2 = new Point($minimo, $maximo)
+print("Distancia min-max:", format($p1.distance($p2), 2))
+
+# 6. Ternario para clasificar
+$clasificacion = $total > 10000 ? "Alto" : "Bajo"
+print("Clasificacion:", $clasificacion)
+
+# 7. Guardar resultado
+$df:ventas_normalizadas = ($df:ventas - $minimo) / ($maximo - $minimo)
+save_csv("resultado.csv", $df)
+print("Guardado en resultado.csv")
+```
+
+---
+
+## Ejemplo 25: Limpieza de datos completa
+
+```zeta
+# 25_limpieza_datos.zl
+# Pipeline completo de limpieza con drop, drop_nan, fill_null
+
+# 1. Cargar datos crudos
+$df = load_csv("tests/datos.csv")
+print("=== Datos crudos ===")
+print("Filas:", len($df))
+print("Columnas:", keys($df))
+
+# 2. Eliminar columnas innecesarias
+$df = drop($df, "id")
+print("\n=== Sin columna 'id' ===")
+print("Columnas:", keys($df))
+
+# 3. Ver nulls por columna
+for ($col in keys($df)) {
+    $total = len($df)
+    $non_null = count($df[$col])
+    $nulls = $total - $non_null
+    if ($nulls > 0) {
+        print($col + ": " + str($nulls) + " nulls")
+    }
+}
+
+# 4. Eliminar filas con null en columna crítica
+$antes = len($df)
+$df = drop_nan($df, "ventas")
+$eliminadas = $antes - len($df)
+print("\n=== Después de drop_nan('ventas') ===")
+print("Filas eliminadas:", $eliminadas)
+print("Filas restantes:", len($df))
+
+# 5. Rellenar nulls restantes con promedio
+$promedio = mean($df:gastos)
+$df:gastos = fill_null($df:gastos, $promedio)
+print("Gastos: nulls reemplazados por promedio =", format($promedio, 2))
+
+# 6. Eliminar duplicados por columna
+$nombres_unicos = unique($df:nombre)
+print("Nombres únicos:", len($nombres_unicos))
+
+# 7. Ordenar y Guardar
+$df_ordenado = $df[sort($df:ventas)]
+save_csv("datos_limpios.csv", $df_ordenado)
+print("\n=== Resultado ===")
+print("Guardado en datos_limpios.csv")
+print("Filas finales:", len($df_ordenado))
+print("Primeras 3 filas:")
+print(head($df_ordenado, 3))
+```
+
+---
+
+## Ejemplo 26: Medición de tiempos
+
+```zeta
+# 26_tiempo.zl
+# Usar time() para medir rendimiento
+
+$t0 = time()
+
+# Cargar y procesar
+$df = load_csv("tests/datos.csv")
+$df = drop_nan($df, "ventas")
+$df:ventas = fill_null($df:ventas, 0)
+$total = sum($df:ventas)
+$promedio = mean($df:ventas)
+
+$t1 = time()
+
+print("=== Resultados ===")
+print("Total:", format($total, 2))
+print("Promedio:", format($promedio, 2))
+print("Tiempo de procesamiento:", $t1 - $t0, "segundos")
 ```

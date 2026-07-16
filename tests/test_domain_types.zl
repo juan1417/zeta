@@ -1,0 +1,283 @@
+# tests/test_domain_types.zl
+# Massive test: Domain types (Currency, Time, GeoLocation) + DataFrame + Dashboard
+# Validates OOP improvements: type(), to_string, init inheritance, typed vectors, ==
+
+print("========================================")
+print("  DOMAIN TYPES + DATAFRAME TEST SUITE")
+print("========================================")
+
+# ==========================================
+# 1. CURRENCY TYPE
+# ==========================================
+print("\n--- 1. Currency Type ---")
+
+class Currency {
+    $amount = 0.0
+    $code = "USD"
+
+    fn init($self, $amount, $code) {
+        $self.amount = $amount
+        $self.code = $code
+    }
+
+    fn to_string($self) {
+        return "$" + format($self.amount, 2) + " " + $self.code
+    }
+
+    fn add($self, $other) {
+        if ($other.code != $self.code) {
+            return mk_err("currency", "Cannot add different currencies: " + $self.code + " vs " + $other.code)
+        }
+        return new Currency($self.amount + $other.amount, $self.code)
+    }
+
+    fn eq($self, $other) {
+        return $self.amount == $other.amount && $self.code == $other.code
+    }
+
+    fn to_cents($self) {
+        return mk_num($self.amount * 100)
+    }
+}
+
+$p1 = new Currency(45.99, "USD")
+$p2 = new Currency(30.50, "USD")
+$p3 = new Currency(100, "EUR")
+
+print("p1:", $p1)
+print("p2:", $p2)
+print("p3:", $p3)
+print("type(p1):", type($p1))
+print("p1 == p1:", $p1 == $p1)
+print("p1 == p2:", $p1 == $p2)
+
+# Currency in vector (becomes dict with index keys)
+$wallet = <$p1, $p2>
+print("wallet:", $wallet)
+
+# ==========================================
+# 2. TIME TYPE
+# ==========================================
+print("\n--- 2. Time Type ---")
+
+class Time {
+    $hours = 0
+    $minutes = 0
+
+    fn init($self, $hours, $minutes) {
+        $self.hours = $hours
+        $self.minutes = $minutes
+    }
+
+    fn to_string($self) {
+        $h = format($self.hours, 0)
+        $m = format($self.minutes, 0)
+        if ($self.minutes < 10) {
+            $m = "0" + $m
+        }
+        return $h + ":" + $m
+    }
+
+    fn to_minutes($self) {
+        return $self.hours * 60 + $self.minutes
+    }
+
+    fn is_before($self, $other) {
+        return $self.to_minutes() < $other.to_minutes()
+    }
+}
+
+$t1 = new Time(14, 30)
+$t2 = new Time(9, 5)
+$t3 = new Time(23, 59)
+
+print("t1:", $t1)
+print("t2:", $t2)
+print("t3:", $t3)
+print("type(t1):", type($t1))
+print("t2 before t1:", $t2.is_before($t1))
+print("t1 before t2:", $t1.is_before($t2))
+
+# ==========================================
+# 3. GEOLOCATION TYPE
+# ==========================================
+print("\n--- 3. GeoLocation Type ---")
+
+class GeoLocation {
+    $lat = 0.0
+    $lon = 0.0
+    $name = ""
+
+    fn init($self, $lat, $lon, $name) {
+        $self.lat = $lat
+        $self.lon = $lon
+        $self.name = $name
+    }
+
+    fn to_string($self) {
+        return $self.name + " (" + format($self.lat, 4) + ", " + format($self.lon, 4) + ")"
+    }
+
+    fn distance_to($self, $other) {
+        $dlat = $self.lat - $other.lat
+        $dlon = $self.lon - $other.lon
+        return sqrt($dlat * $dlat + $dlon * $dlon)
+    }
+}
+
+$loc1 = new GeoLocation(4.7110, -74.0721, "Bogota")
+$loc2 = new GeoLocation(6.2442, -75.5812, "Medellin")
+$loc3 = new GeoLocation(3.4516, -76.5320, "Cali")
+
+print("loc1:", $loc1)
+print("loc2:", $loc2)
+print("loc3:", $loc3)
+print("type(loc1):", type($loc1))
+print("dist Bogota-Medellin:", format($loc1.distance_to($loc2), 4))
+
+# ==========================================
+# 4. TYPED VECTORS
+# ==========================================
+print("\n--- 4. Typed Vectors ---")
+
+$strs = <"Ana", "Bob", "Carlos", "Diana">
+print("str_vec:", $strs, "type:", type($strs))
+
+$bools = <true, false, true, true, false>
+print("bool_vec:", $bools, "type:", type($bools))
+
+$nums = <1, 2, 3, 4, 5>
+print("num_vec:", $nums, "type:", type($nums))
+
+# Mixed → dict
+$mixed = <1, "hello", true>
+print("mixed:", $mixed, "type:", type($mixed))
+
+# Objects in vector → dict
+$times = <$t1, $t2, $t3>
+print("times:", $times)
+
+# ==========================================
+# 5. DATAFRAME WITH MULTI-TYPE COLUMNS
+# ==========================================
+print("\n--- 5. DataFrame Multi-Type ---")
+
+$df = {
+    "nombre": <"Ana", "Bob", "Carlos", "Diana", "Eve">,
+    "edad": <25, 30, 35, 28, 22>,
+    "activo": <true, false, true, true, false>
+}
+
+print("DataFrame:", $df)
+print("Rows:", len($df))
+print("names:", $df:nombre)
+print("ages:", $df:edad)
+print("active:", $df:activo)
+
+# head / select
+print("head(2):", head($df, 2))
+print("select names:", select($df, "nombre"))
+
+# ==========================================
+# 6. CSV LOAD WITH MIXED TYPES
+# ==========================================
+print("\n--- 6. CSV Mixed Types ---")
+
+$csv = load_csv("tests/datos_mixtos.csv")
+print("CSV rows:", len($csv))
+print("CSV columns:", $csv:nombre)
+print("CSV ages:", $csv:edad)
+print("CSV active:", $csv:activo)
+print("CSV cities:", $csv:ciudad)
+
+# Filter
+$activos = $csv[[$csv:activo == true]]
+print("Active count:", len($activos))
+
+# Stats with nulls
+print("Mean salary:", mean($csv:salario))
+print("Count:", count($csv:salario))
+
+# ==========================================
+# 7. FILL_NULL + IS_NULL
+# ==========================================
+print("\n--- 7. Null Handling ---")
+
+$v = <1, null, 3, null, 5>
+print("original:", $v)
+print("fill_null:", fill_null($v, 0))
+print("is_null vec:", is_null($v))
+
+print("is_null(\"\"):", is_null(""))
+print("is_null(42):", is_null(42))
+print("is_null(null):", is_null(null))
+
+# ==========================================
+# 8. COERCION
+# ==========================================
+print("\n--- 8. Type Coercion ---")
+
+print("42 + items:", 42 + " items")
+print("true + 10:", true + 10)
+print("false + hi:", false + " hi")
+print("3 > true:", 3 > true)
+print("2 == false:", 2 == false)
+
+# ==========================================
+# 9. INHERITANCE
+# ==========================================
+print("\n--- 9. Inheritance ---")
+
+class Vehicle {
+    $brand = "unknown"
+    fn init($self, $brand) {
+        $self.brand = $brand
+    }
+    fn to_string($self) {
+        return "Vehicle: " + $self.brand
+    }
+}
+
+class Car extends Vehicle {
+    $doors = 4
+    fn init($self, $brand, $doors) {
+        $self.brand = $brand
+        $self.doors = $doors
+    }
+    fn to_string($self) {
+        return $self.brand + " (" + format($self.doors, 0) + " doors)"
+    }
+}
+
+$c1 = new Car("Toyota", 4)
+$c2 = new Car("Mazda", 2)
+print("car1:", $c1)
+print("car2:", $c2)
+print("type car1:", type($c1))
+print("car1 == car2:", $c1 == $c2)
+print("car1 == car1:", $c1 == $c1)
+
+# ==========================================
+# 10. DASHBOARD SCENE
+# ==========================================
+print("\n--- 10. Dashboard Scene ---")
+
+$sc = scene("Domain Types Dashboard", "Zeta Test")
+layout("grid", 2, 12, "#1a1a1a")
+
+add_metric("Total salaries", sum($csv:salario), "$", "#4caf50")
+add_metric("Mean salary", mean($csv:salario), "$", "#2196f3")
+add_metric("Active users", count($csv:activo), "", "#ff9800")
+
+add_line_plot($csv, "Salary trend", "nombre", "salario")
+add_bar_chart($csv, "Age by person", "nombre", "edad")
+add_scatter($csv, "Age vs Salary", "edad", "salario")
+add_histogram($csv, "Salary distribution", "salario", 5)
+add_box_plot($csv, "Salary box", "salario")
+
+print("Scene saved:", guardar_grafo("tests/test_domain_types.json"))
+print("Scene loaded:", type(cargar_grafo("tests/test_domain_types.json")))
+
+print("\n========================================")
+print("  ALL TESTS PASSED")
+print("========================================")

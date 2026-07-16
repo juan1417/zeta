@@ -193,7 +193,117 @@ Sin X11, sin OpenGL, sin GPU. Solo necesitas una terminal que soporte UTF-8 (que
 - **Server headless que solo quiere logs visuales**: `zeta_term --no-color > log.txt`.
 - **Laptop sin X11 (e.g., Mac con SSH)**: `zeta_term`.
 
-## 12.5. Extender: añadir un nuevo renderer
+## 12.5. Ejemplo completo: crear y renderizar una escena
+
+### Paso 1: Escribir el script de escena
+
+```zeta
+# ventas_dashboard.zl
+$df = load_csv("tests/datos.csv")
+
+# Crear escena
+$scn = scene("Reporte de Ventas", "zeta")
+layout($scn, "grid", 2)
+
+# Métricas principales
+add_metric($scn, "Total Ventas", sum($df:ventas))
+add_metric($scn, "Promedio", mean($df:ventas))
+add_metric($scn, "Desv. Estándar", stddev($df:ventas))
+
+# Gráficos
+add_line_plot($scn, "Tendencia", $df, "mes", "ventas")
+add_bar_chart($scn, "Gastos por Mes", $df, "mes", "gastos")
+add_scatter($scn, "Ventas vs Gastos", $df, "ventas", "gastos")
+add_histogram($scn, "Distribución", $df:ventas, 10)
+
+# Guardar para uso offline
+guardar_grafo("escena.json")
+print("Escena guardada en escena.json")
+```
+
+### Paso 2: Ejecutar con el servidor
+
+```bash
+# Terminal 1: iniciar servidor
+./zeta_server --port 8080
+
+# Terminal 2: ejecutar el script
+./zeta tests/ventas_dashboard.zl
+
+# Terminal 3: dashboard gráfico (requiere X11)
+./zeta_dashboard --host localhost --port 8080
+
+# O terminal 3: renderer de terminal (SSH-friendly)
+./zeta_term --host localhost --port 8080 --width 120
+```
+
+### Paso 3: Renderizado offline (sin servidor)
+
+```bash
+# Generar la escena primero
+./zeta tests/ventas_dashboard.zl
+
+# Renderizar directamente desde el JSON guardado
+./zeta_term --file escena.json --width 100
+```
+
+Esto es útil para:
+- CI/CD que genera reportes sin levantar un servidor
+- Renderizar snapshots de escenas guardadas
+- Debugging de la estructura JSON
+
+## 12.6. Modo screenshot automatizado
+
+```bash
+# Generar un PNG del dashboard para un reporte
+./zeta_server --port 8080 &
+sleep 1
+
+./zeta tests/ventas_dashboard.zl
+
+./zeta_dashboard --host localhost --port 8080 \
+    --screenshot reporte.png \
+    --width 1920 --height 1080 \
+    --wait 5
+
+kill %1  # cerrar servidor
+```
+
+El flag `--wait 5` espera 5 frames antes de capturar, dando tiempo a que ImPlot renderice los gráficos.
+
+## 12.7. Workflow CI/CD con GitHub Actions
+
+```yaml
+# .github/workflows/report.yml
+name: Generar Reporte
+on:
+  schedule:
+    - cron: '0 8 * * 1'  # Cada lunes a las 8am
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Zeta
+        run: ./build.sh all
+      - name: Generate report
+        run: |
+          ./zeta_server --port 8080 &
+          sleep 2
+          ./zeta tests/weekly_report.zl
+          ./zeta_dashboard --host localhost --port 8080 \
+            --screenshot reporte_$(date +%Y%m%d).png \
+            --width 1600 --height 900 --wait 5
+          kill %1
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-semanal
+          path: reporte_*.png
+```
+
+## 12.8. Extender: añadir un nuevo renderer
 
 El contrato es simple: hacer `GET /api/grafo`, parsear el JSON, renderizar. Pasos para un nuevo consumidor:
 
@@ -204,7 +314,7 @@ El contrato es simple: hacer `GET /api/grafo`, parsear el JSON, renderizar. Paso
 
 Tiempo estimado para un renderer básico: **1-2 días** para alguien con experiencia en C++/gráficos.
 
-## 12.6. Limitaciones comunes
+## 12.9. Limitaciones comunes
 
 - **Ambos renderers son single-threaded**: no hay composición paralela.
 - **Sin animaciones**: la escena se re-renderiza completa cada vez, no hay transiciones.

@@ -5,8 +5,8 @@ fn mean($vec) {
     }
     $suma = 0
     for ($i in range($n)) {
-        if (!is_null($vec($i))) {
-            $suma = $suma + $vec($i)
+        if (!is_null($vec[$i])) {
+            $suma = $suma + $vec[$i]
         }
     }
     return $suma / $n
@@ -20,8 +20,8 @@ fn stddev($vec) {
     }
     $suma = 0
     for ($i in range($n)) {
-        if (!is_null($vec($i))) {
-            $d = $vec($i) - $m
+        if (!is_null($vec[$i])) {
+            $d = $vec[$i] - $m
             $suma = $suma + $d * $d
         }
     }
@@ -36,8 +36,8 @@ fn correlation($x, $y) {
     $dx2 = 0
     $dy2 = 0
     for ($i in range($n)) {
-        $dx = $x($i) - $mx
-        $dy = $y($i) - $my
+        $dx = $x[$i] - $mx
+        $dy = $y[$i] - $my
         $num = $num + $dx * $dy
         $dx2 = $dx2 + $dx * $dx
         $dy2 = $dy2 + $dy * $dy
@@ -58,7 +58,7 @@ fn normalize($vec) {
         return $out
     }
     for ($i in range($n)) {
-        $out = push($out, ($vec($i) - $m) / $sd)
+        $out = push($out, ($vec[$i] - $m) / $sd)
     }
     return $out
 }

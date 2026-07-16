@@ -11,8 +11,12 @@
 #include <algorithm>
 #include <sstream>
 #include <fstream>
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <sys/ioctl.h>
 #include <unistd.h>
+#endif
 
 #include "deps/json.hpp"
 
@@ -113,8 +117,16 @@ static RGB hex_to_rgb(const std::string& hex, RGB fallback = {100, 180, 255}) {
 }
 
 static int detect_width() {
+#ifdef _WIN32
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
+        int cols = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+        if (cols > 0) return cols;
+    }
+#else
     struct winsize w;
     if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0 && w.ws_col > 0) return (int)w.ws_col;
+#endif
     const char* cols = std::getenv("COLUMNS");
     if (cols) { int n = std::atoi(cols); if (n > 0) return n; }
     return 120;
@@ -503,27 +515,55 @@ static void render_layout(Canvas& c, const Scene& s) {
     }
 }
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
+#else
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#endif
 
 static std::string http_get(const std::string& host, int port, const std::string& path) {
+#ifdef _WIN32
+    WSADATA wsa;
+    WSAStartup(MAKEWORD(2, 2), &wsa);
+#endif
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) return "";
     struct hostent* he = gethostbyname(host.c_str());
-    if (!he) { close(sock); return ""; }
+    if (!he) {
+#ifdef _WIN32
+        closesocket(sock); WSACleanup();
+#else
+        close(sock);
+#endif
+        return "";
+    }
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     memcpy(&addr.sin_addr, he->h_addr_list[0], he->h_length);
-    if (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) { close(sock); return ""; }
+    if (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+#ifdef _WIN32
+        closesocket(sock); WSACleanup();
+#else
+        close(sock);
+#endif
+        return "";
+    }
     std::string req = "GET " + path + " HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n";
     send(sock, req.c_str(), req.size(), 0);
     std::string resp;
     char buf[4096];
     int n;
     while ((n = recv(sock, buf, sizeof(buf), 0)) > 0) resp.append(buf, n);
+#ifdef _WIN32
+    closesocket(sock); WSACleanup();
+#else
     close(sock);
+#endif
     size_t pos = resp.find("\r\n\r\n");
     if (pos == std::string::npos) return "";
     return resp.substr(pos + 4);

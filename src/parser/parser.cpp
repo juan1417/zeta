@@ -171,39 +171,6 @@ std::unique_ptr<NodoAST> Parser::declaracion_asignacion() {
         }
     }
 
-    if (comprobar(TipoToken::PARENTESIS_ABRE)) {
-        consumir(TipoToken::PARENTESIS_ABRE);
-        auto indice = expresion();
-        consumir(TipoToken::PARENTESIS_CIERRA);
-
-        auto acceso = std::make_unique<NodoAST>();
-        acceso->tipo = TipoNodoAST::ACCESO_INDICE;
-        acceso->hijos.push_back(std::move(nodo));
-        acceso->hijos.push_back(std::move(indice));
-        nodo = std::move(acceso);
-
-        if (comprobar(TipoToken::ASIGNAR)) {
-            consumir(TipoToken::ASIGNAR);
-            auto valor = expresion();
-
-            if (comprobar(TipoToken::TERNARIO_PREG)) {
-                consumir(TipoToken::TERNARIO_PREG);
-                auto prop = std::make_unique<NodoAST>();
-                prop->tipo = TipoNodoAST::PROPAGACION;
-                prop->hijos.push_back(std::move(valor));
-                valor = std::move(prop);
-            }
-
-            auto asign = std::make_unique<NodoAST>();
-            asign->tipo = TipoNodoAST::ASIGNACION_INDICE;
-            asign->hijos.push_back(std::move(nodo));
-            asign->hijos.push_back(std::move(valor));
-            asign->linea = nombre.linea;
-            asign->columna = nombre.columna;
-            return asign;
-        }
-    }
-
     if (comprobar(TipoToken::FILTRO_ABRE)) {
         consumir(TipoToken::FILTRO_ABRE);
         auto condicion = expresion();
@@ -974,31 +941,30 @@ std::unique_ptr<NodoAST> Parser::parsear_variable_o_llamada() {
         nodo = std::move(acceso);
     }
 
-    if (comprobar(TipoToken::PARENTESIS_ABRE)) {
-        consumir(TipoToken::PARENTESIS_ABRE);
-        auto indice = expresion();
-        consumir(TipoToken::PARENTESIS_CIERRA);
-
-        auto acceso = std::make_unique<NodoAST>();
-        acceso->tipo = TipoNodoAST::ACCESO_INDICE;
-        acceso->hijos.push_back(std::move(nodo));
-        acceso->hijos.push_back(std::move(indice));
-        nodo = std::move(acceso);
-    }
-
     if (comprobar(TipoToken::CORCHETE_ABRE)) {
         consumir(TipoToken::CORCHETE_ABRE);
-        auto fila = expresion();
-        consumir(TipoToken::COMA);
-        auto columna = expresion();
-        consumir(TipoToken::CORCHETE_CIERRA);
+        auto primer_expr = expresion();
 
-        auto acceso = std::make_unique<NodoAST>();
-        acceso->tipo = TipoNodoAST::ACCESO_MATRIZ;
-        acceso->hijos.push_back(std::move(nodo));
-        acceso->hijos.push_back(std::move(fila));
-        acceso->hijos.push_back(std::move(columna));
-        nodo = std::move(acceso);
+        if (comprobar(TipoToken::COMA)) {
+            consumir(TipoToken::COMA);
+            auto columna = expresion();
+            consumir(TipoToken::CORCHETE_CIERRA);
+
+            auto acceso = std::make_unique<NodoAST>();
+            acceso->tipo = TipoNodoAST::ACCESO_MATRIZ;
+            acceso->hijos.push_back(std::move(nodo));
+            acceso->hijos.push_back(std::move(primer_expr));
+            acceso->hijos.push_back(std::move(columna));
+            nodo = std::move(acceso);
+        } else {
+            consumir(TipoToken::CORCHETE_CIERRA);
+
+            auto acceso = std::make_unique<NodoAST>();
+            acceso->tipo = TipoNodoAST::ACCESO_INDICE;
+            acceso->hijos.push_back(std::move(nodo));
+            acceso->hijos.push_back(std::move(primer_expr));
+            nodo = std::move(acceso);
+        }
     }
 
     if (comprobar(TipoToken::FILTRO_ABRE)) {

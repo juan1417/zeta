@@ -1,0 +1,42 @@
+# tests/test_numerics.zl
+# Verifica features numéricas: separadores de miles, notación científica, constantes, format
+
+print("=== Test Numeric Features ===")
+
+# Separadores de miles con coma
+$x = 1,000
+print("1,000 =", $x)
+
+$y = 1,000,000
+print("1,000,000 =", $y)
+
+# En vectores
+$v = <1,000, 2,000, 3,000>
+print("Vector:", $v)
+print("Len:", len($v))
+
+# En matrices
+$m = <<1,000, 2,000>, <3,000, 4,000>>
+print("Matrix[0,1]:", $m[0, 1])
+
+# Notación científica
+$a = 1.5e3
+print("1.5e3 =", $a)
+
+$b = 2.5e-3
+print("2.5e-3 =", $b)
+
+$c = 1E10
+print("1E10 =", $c)
+
+# Constantes
+print("PI =", PI)
+print("E =", E)
+print("INFINITY =", INFINITY)
+
+# Función format
+print("format(3.14159, 2) =", format(3.14159, 2))
+print("format(42, 0) =", format(42, 0))
+print("format(1.23456789, 4) =", format(1.23456789, 4))
+
+print("OK numeric features")

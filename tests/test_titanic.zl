@@ -1,0 +1,81 @@
+# tests/test_titanic.zl
+# Titanic Dataset Analysis — 891 rows, mixed types + nulls
+
+print("========================================")
+print("  TITANIC DATASET ANALYSIS")
+print("  891 rows × 9 columns")
+print("========================================")
+
+$t0 = time()
+
+# 1. Load (clean version without Name/Cabin/Ticket)
+$df = load_csv("tests/titanic_clean.csv")
+print("\nLoaded:", len($df), "rows")
+print("Columns: PassengerId, Survived, Pclass, Sex, Age, SibSp, Parch, Fare, Embarked")
+
+# 2. Preview
+print("PassengerId:", head($df:PassengerId, 5))
+print("Survived:", head($df:Survived, 5))
+print("Pclass:", head($df:Pclass, 5))
+print("Fare:", head($df:Fare, 5))
+
+# 3. Stats on numeric columns
+print("\n--- Descriptive Statistics ---")
+print("Survived — mean:", format(mean($df:Survived), 4),
+      " sum:", sum($df:Survived))
+print("Pclass   — mean:", format(mean($df:Pclass), 2),
+      " min:", min($df:Pclass),
+      " max:", max($df:Pclass))
+print("Age      — mean:", format(mean($df:Age), 2),
+      " min:", min($df:Age),
+      " max:", max($df:Age),
+      " std:", format(stddev($df:Age), 2))
+print("Fare     — mean:", format(mean($df:Fare), 2),
+      " min:", format(min($df:Fare), 2),
+      " max:", format(max($df:Fare), 2),
+      " std:", format(stddev($df:Fare), 2))
+print("SibSp    — mean:", format(mean($df:SibSp), 2))
+print("Parch    — mean:", format(mean($df:Parch), 2))
+
+# 4. Survival analysis
+print("\n--- Survival Analysis ---")
+$survived = sum($df:Survived)
+$total = len($df)
+$rate = $survived / $total * 100
+print("Survivors:", $survived, "/", $total)
+print("Survival rate:", format($rate, 1), "%")
+
+# 5. Class breakdown
+print("\n--- By Class ---")
+$class1 = $df:Pclass == 1
+$class2 = $df:Pclass == 2
+$class3 = $df:Pclass == 3
+print("1st class:", sum($class1), "passengers")
+print("2nd class:", sum($class2), "passengers")
+print("3rd class:", sum($class3), "passengers")
+
+# 6. Fare analysis
+print("\n--- Fare Analysis ---")
+print("Mean fare:", format(mean($df:Fare), 2))
+print("Max fare:", format(max($df:Fare), 2))
+print("Min fare:", format(min($df:Fare), 2))
+$high_fare = $df:Fare > 100
+print("Fares > 100:", sum($high_fare))
+
+# 7. Dashboard
+$sc = scene("Titanic Analysis", "Zeta")
+layout("grid", 3, 8)
+add_metric("Passengers", len($df), "", "#4caf50")
+add_metric("Survivors", $survived, "", "#2196f3")
+add_metric("Survival Rate", $rate, "%", "#ff9800")
+add_metric("Avg Fare", mean($df:Fare), "$", "#9c27b0")
+add_line_plot($df, "Fare Distribution", "PassengerId", "Fare")
+add_bar_chart($df, "Class Distribution", "PassengerId", "Pclass")
+add_histogram($df, "Fare Histogram", "Fare", 15)
+add_scatter($df, "Fare vs Pclass", "Fare", "Pclass")
+add_box_plot($df, "Fare Box Plot", "Fare")
+print("Dashboard:", guardar_grafo("tests/titanic_dashboard.json"))
+
+$t1 = time()
+print("\nTotal time:", format($t1 - $t0, 4), "s")
+print("========================================")

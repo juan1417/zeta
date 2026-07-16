@@ -148,8 +148,8 @@ fn mean($vec) {
     if ($n == 0) { return 0 }
     $suma = 0
     for ($i in range($n)) {
-        if (!is_null($vec($i))) {
-            $suma = $suma + $vec($i)
+        if (!is_null($vec[$i])) {
+            $suma = $suma + $vec[$i]
         }
     }
     return $suma / $n
@@ -161,8 +161,8 @@ fn stddev($vec) {
     if ($n == 0) { return 0 }
     $suma = 0
     for ($i in range($n)) {
-        if (!is_null($vec($i))) {
-            $d = $vec($i) - $m
+        if (!is_null($vec[$i])) {
+            $d = $vec[$i] - $m
             $suma = $suma + $d * $d
         }
     }
@@ -177,8 +177,8 @@ fn correlation($x, $y) {
     $dx2 = 0
     $dy2 = 0
     for ($i in range($n)) {
-        $dx = $x($i) - $mx
-        $dy = $y($i) - $my
+        $dx = $x[$i] - $mx
+        $dy = $y[$i] - $my
         $num = $num + $dx * $dy
         $dx2 = $dx2 + $dx * $dx
         $dy2 = $dy2 + $dy * $dy
@@ -285,7 +285,125 @@ export ZETA_PATH="$HOME/.local/lib/zeta:/opt/zeta/lib"
 
 Esto permite que tus scripts `.zl` sean portables: los módulos en `~/.local/lib/zeta/` están disponibles sin cambios en el script.
 
-## 6.14. Tabla resumen
+## 6.14. Funciones nativas disponibles
+
+Zeta incluye un conjunto de funciones nativas integradas en el intérprete. No necesitan `include` — están siempre disponibles.
+
+### Estadística y agregación
+
+| Función | Firma | Retorna | Descripción |
+|---------|-------|---------|-------------|
+| `sum($vec)` | `sum(vec)` | num | Suma total (ignora nulls) |
+| `mean($vec)` | `mean(vec)` | num | Promedio |
+| `min($vec)` | `min(vec)` | num | Valor mínimo |
+| `max($vec)` | `max(vec)` | num | Valor máximo |
+| `stddev($vec)` | `stddev(vec)` | num | Desviación estándar |
+| `count($vec)` | `count(vec)` | num | Elementos no nulos |
+
+### Matemáticas
+
+| Función | Firma | Retorna | Descripción |
+|---------|-------|---------|-------------|
+| `abs($x)` | `abs(num)` | num | Valor absoluto |
+| `round($x)` | `round(num)` | num | Redondeo |
+| `floor($x)` | `floor(num)` | num | Redondeo hacia abajo |
+| `ceil($x)` | `ceil(num)` | num | Redondeo hacia arriba |
+| `pow($b, $e)` | `pow(num, num)` | num | Potencia |
+| `sqrt($x)` | `sqrt(num)` | num | Raíz cuadrada |
+
+### Cadenas
+
+| Función | Firma | Retorna | Descripción |
+|---------|-------|---------|-------------|
+| `len($s)` | `len(str)` | num | Longitud |
+| `upper($s)` | `upper(str)` | str | Mayúsculas |
+| `lower($s)` | `lower(str)` | str | Minúsculas |
+| `substr($s, $i, [$n])` | `substr(str, num, [num])` | str | Subcadena |
+| `split($s, $sep)` | `split(str, str)` | str_vec | Dividir por separador |
+| `join($v, $sep)` | `join(str_vec, str)` | str | Unir con separador |
+| `replace($s, $old, $new)` | `replace(str, str, str)` | str | Reemplazar ocurrencias |
+| `find($s, $sub)` | `find(str, str)` | num | Posición de subcadena (-1 si no encuentra) |
+
+### Vectores
+
+| Función | Firma | Retorna | Descripción |
+|---------|-------|---------|-------------|
+| `push($v, $val)` | `push(vec, num)` | vec | Agregar elemento |
+| `reverse($v)` | `reverse(vec)` | vec | Invertir |
+| `sort($v)` | `sort(vec)` | vec | Ordenar |
+| `unique($v)` | `unique(vec)` | vec | Elementos únicos |
+| `range($n)` / `range($i, $f)` / `range($i, $f, $p)` | `range(...)` | vec | Generar rango |
+| `head($v, $n=5)` | `head(vec, [num])` | vec | Primeros N elementos |
+
+### DataFrames
+
+| Función | Firma | Retorna | Descripción |
+|---------|-------|---------|-------------|
+| `select($df, $col)` | `select(df, str)` | vec | Obtener columna |
+| `drop($df, $col)` | `drop(df, str)` | df | Eliminar columna |
+| `drop_nan($df, $col)` | `drop_nan(df, str)` | df | Eliminar filas con null |
+| `head($df, $n=5)` | `head(df, [num])` | df | Primeras N filas |
+
+### Diccionarios
+
+| Función | Firma | Retorna | Descripción |
+|---------|-------|---------|-------------|
+| `keys($d)` | `keys(dict)` | str_vec | Claves |
+| `values($d)` | `values(dict)` | vec | Valores |
+
+### I/O
+
+| Función | Firma | Retorna | Descripción |
+|---------|-------|---------|-------------|
+| `load_csv($ruta, $delim)` | `load_csv(str, [str])` | df | Cargar CSV/TSV |
+| `load_json($ruta)` | `load_json(str)` | df | Cargar JSON |
+| `load_xlsx($ruta)` | `load_xlsx(str)` | df | Cargar Excel |
+| `save_csv($ruta, $df, $delim)` | `save_csv(str, df, [str])` | null | Guardar CSV |
+| `save_xlsx($ruta, $df)` | `save_xlsx(str, df)` | null | Guardar Excel |
+| `guardar_grafo($ruta)` | `guardar_grafo(str)` | null | Guardar escena JSON |
+| `cargar_grafo($ruta)` | `cargar_grafo(str)` | scene | Cargar escena |
+| `grafo_actual()` | `grafo_actual()` | scene | Obtener escena actual |
+
+### Visualización (escenas)
+
+| Función | Firma | Retorna | Descripción |
+|---------|-------|---------|-------------|
+| `scene($t, $a)` | `scene(str, str)` | scene | Crear escena |
+| `layout($tipo, $cols, $gap, $bg)` | `layout(str, num, num, str)` | null | Configurar layout |
+| `add_metric($t, $v, $u, $c)` | `add_metric(str, num, str, str)` | null | Agregar métrica |
+| `add_line_plot($d, $t, $x, $y)` | `add_line_plot(dict, str, str, str)` | null | Gráfico de líneas |
+| `add_bar_chart($d, $t, $x, $y)` | `add_bar_chart(dict, str, str, str)` | null | Gráfico de barras |
+| `add_scatter($d, $t, $x, $y)` | `add_scatter(dict, str, str, str)` | null | Dispersión |
+| `add_histogram($d, $t, $col, $bins)` | `add_histogram(dict, str, str, num)` | null | Histograma |
+| `add_linear_regression($d, $t, $x, $y)` | `add_linear_regression(dict, str, str, str)` | null | Regresión lineal |
+
+### Inspección y tipos
+
+| Función | Firma | Retorna | Descripción |
+|---------|-------|---------|-------------|
+| `type($x)` | `type(any)` | str | Tipo del valor |
+| `is_null($x)` | `is_null(any)` | bool | Es null |
+| `is_error($x)` | `is_error(any)` | bool | Es error |
+
+### Sistema
+
+| Función | Firma | Retorna | Descripción |
+|---------|-------|---------|-------------|
+| `print(...)` | `print(any...)` | null | Imprimir |
+| `time()` | `time()` | num | Timestamp actual |
+| `format($n, $d)` | `format(num, num)` | str | Formatear número |
+| `load_lib($ruta, $funcs)` | `load_lib(str, dict)` | str | Cargar librería nativa |
+| `route($method, $path, $fn)` | `route(str, str, func)` | null | Definir ruta HTTP |
+
+### Programación funcional
+
+| Función | Firma | Retorna | Descripción |
+|---------|-------|---------|-------------|
+| `map($v, $fn)` | `map(vec, func)` | vec | Aplicar función a cada elemento |
+| `filter($v, $fn)` | `filter(vec, func)` | vec | Filtrar elementos |
+| `reduce($v, $fn, $init)` | `reduce(vec, func, num)` | num | Reducir a un valor |
+
+## 6.15. Tabla resumen de imports
 
 | Sintaxis | Crea namespace | Expone en global | Forma |
 |----------|----------------|------------------|-------|

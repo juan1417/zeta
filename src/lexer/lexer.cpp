@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <map>
 #include <cctype>
+#include <algorithm>
 
 namespace zeta {
 
@@ -81,14 +82,40 @@ Token Lexer::tokenizar_identificador() {
 Token Lexer::tokenizar_numero() {
     size_t inicio = posicion_ - 1;
     bool punto_encontrado = false;
-    while (!esta_al_final() && (es_digito(peek()) || peek() == '.')) {
+    while (!esta_al_final() && (es_digito(peek()) || peek() == '.' || peek() == ',')) {
         if (peek() == '.') {
             if (punto_encontrado) break;
             punto_encontrado = true;
+            avanzar();
+        } else if (peek() == ',') {
+            // Coma como separador de miles: solo si viene dígito, 3 dígitos, y NO más dígitos
+            if (posicion_ + 3 < fuente_.size() &&
+                es_digito(fuente_[posicion_ + 1]) &&
+                es_digito(fuente_[posicion_ + 2]) &&
+                es_digito(fuente_[posicion_ + 3]) &&
+                !es_digito(fuente_[posicion_ + 4])) {
+                avanzar(); // consumir la coma
+            } else {
+                break; // no es separador de miles, salir
+            }
+        } else {
+            avanzar();
         }
+    }
+    // Notación científica: e/E con optional +/-
+    if (!esta_al_final() && (peek() == 'e' || peek() == 'E')) {
+        size_t e_pos = posicion_;
         avanzar();
+        if (!esta_al_final() && (peek() == '+' || peek() == '-')) avanzar();
+        if (!esta_al_final() && es_digito(peek())) {
+            while (!esta_al_final() && es_digito(peek())) avanzar();
+        } else {
+            posicion_ = e_pos; // revertir si no es notación válida
+        }
     }
     std::string texto = fuente_.substr(inicio, posicion_ - inicio);
+    // Eliminar comas antes de convertir
+    texto.erase(std::remove(texto.begin(), texto.end(), ','), texto.end());
     Token token(TipoToken::NUMERO, texto, linea_, columna_ - static_cast<int>(texto.length()));
     try {
         token.valor_numero = std::stod(texto);

@@ -5,7 +5,7 @@ fn mean($vec) {
     }
     $suma = 0
     for ($i in range($n)) {
-        $suma = $suma + $vec($i)
+        $suma = $suma + $vec[$i]
     }
     return $suma / $n
 }

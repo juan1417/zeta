@@ -1,0 +1,67 @@
+# tests/test_iris.zl
+# Iris Dataset Analysis — 150 rows, 4 numeric + 1 string column
+
+print("========================================")
+print("  IRIS DATASET ANALYSIS")
+print("  150 rows × 5 columns")
+print("========================================")
+
+$t0 = time()
+
+# 1. Load
+$df = load_csv("tests/iris.csv")
+print("\nLoaded:", len($df), "rows")
+
+# 2. Columns
+print("Sepal Length:", head($df:sepal_length, 5))
+print("Species:", head($df:species, 5))
+
+# 3. Stats on all numeric columns
+print("\n--- Descriptive Statistics ---")
+print("sepal_length  — mean:", format(mean($df:sepal_length), 2),
+      " min:", format(min($df:sepal_length), 2),
+      " max:", format(max($df:sepal_length), 2),
+      " std:", format(stddev($df:sepal_length), 2))
+
+print("sepal_width   — mean:", format(mean($df:sepal_width), 2),
+      " min:", format(min($df:sepal_width), 2),
+      " max:", format(max($df:sepal_width), 2),
+      " std:", format(stddev($df:sepal_width), 2))
+
+print("petal_length  — mean:", format(mean($df:petal_length), 2),
+      " min:", format(min($df:petal_length), 2),
+      " max:", format(max($df:petal_length), 2),
+      " std:", format(stddev($df:petal_length), 2))
+
+print("petal_width   — mean:", format(mean($df:petal_width), 2),
+      " min:", format(min($df:petal_width), 2),
+      " max:", format(max($df:petal_width), 2),
+      " std:", format(stddev($df:petal_width), 2))
+
+# 4. Filtering
+print("\n--- Filtering ---")
+$large_petal = $df:petal_length > 5.0
+$large_count = sum($large_petal)
+print("Flowers with petal_length > 5.0:", $large_count)
+
+# 5. Aggregations
+print("\n--- Aggregations ---")
+print("Total sepal_length:", format(sum($df:sepal_length), 2))
+print("Total petal_length:", format(sum($df:petal_length), 2))
+print("Ratio petal/sepal:", format(sum($df:petal_length) / sum($df:sepal_length), 3))
+
+# 6. Dashboard
+$sc = scene("Iris Analysis", "Zeta")
+layout("grid", 2, 10)
+add_metric("Samples", len($df), "", "#4caf50")
+add_metric("Avg Sepal", mean($df:sepal_length), "cm", "#2196f3")
+add_metric("Avg Petal", mean($df:petal_length), "cm", "#ff9800")
+add_line_plot($df, "Sepal Length", "sepal_length", "sepal_width")
+add_scatter($df, "Petal L vs W", "petal_length", "petal_width")
+add_histogram($df, "Petal Length Dist", "petal_length", 10)
+add_box_plot($df, "Sepal Width Box", "sepal_width")
+print("Dashboard:", guardar_grafo("tests/iris_dashboard.json"))
+
+$t1 = time()
+print("\nTotal time:", format($t1 - $t0, 4), "s")
+print("========================================")

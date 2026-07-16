@@ -1,0 +1,150 @@
+# tests/test_performance.zl
+# Performance Benchmark: 100,000-row CSV processing
+# Tests load, stats, filter, sort, aggregation, dashboard
+
+print("==============================================")
+print("  PERFORMANCE BENCHMARK — 100K ROWS")
+print("==============================================")
+
+$total_start = time()
+
+# ==========================================
+# 1. CSV LOAD
+# ==========================================
+print("\n--- 1. CSV Load ---")
+$t0 = time()
+$df = load_csv("tests/ventas_100k.csv")
+$t1 = time()
+$rows = len($df)
+print("Loaded:", $rows, "rows in", format($t1 - $t0, 4), "s")
+
+# ==========================================
+# 2. BASIC STATISTICS (single column)
+# ==========================================
+print("\n--- 2. Stats: total column ---")
+$t0 = time()
+$s_total = sum($df:total)
+$t1 = time()
+print("  sum:", format($s_total, 2), "  time:", format($t1 - $t0, 4), "s")
+
+$t0 = time()
+$m_total = mean($df:total)
+$t1 = time()
+print("  mean:", format($m_total, 2), " time:", format($t1 - $t0, 4), "s")
+
+$t0 = time()
+$mn_total = min($df:total)
+$t1 = time()
+print("  min:", format($mn_total, 2), "   time:", format($t1 - $t0, 4), "s")
+
+$t0 = time()
+$mx_total = max($df:total)
+$t1 = time()
+print("  max:", format($mx_total, 2), "  time:", format($t1 - $t0, 4), "s")
+
+$t0 = time()
+$sd_total = stddev($df:total)
+$t1 = time()
+print("  stddev:", format($sd_total, 2), " time:", format($t1 - $t0, 4), "s")
+
+$t0 = time()
+$cnt_total = count($df:total)
+$t1 = time()
+print("  count:", $cnt_total, " time:", format($t1 - $t0, 4), "s")
+
+# ==========================================
+# 3. STATS ON MULTIPLE COLUMNS
+# ==========================================
+print("\n--- 3. Stats: all numeric columns ---")
+$t0 = time()
+sum($df:cantidad)
+mean($df:cantidad)
+min($df:cantidad)
+max($df:cantidad)
+stddev($df:cantidad)
+sum($df:precio_unitario)
+mean($df:precio_unitario)
+sum($df:ganancia)
+mean($df:ganancia)
+$t1 = time()
+print("10 stats on 3 columns:", format($t1 - $t0, 4), "s")
+
+# ==========================================
+# 4. FILTER (comparison operators)
+# ==========================================
+print("\n--- 4. Filter: total > 5000 ---")
+$t0 = time()
+$big = $df:total > 5000
+$t1 = time()
+$big_count = sum($big)
+print("  Filter time:", format($t1 - $t0, 4), "s")
+print("  Rows > 5000:", $big_count)
+
+# ==========================================
+# 5. MULTI-COLUMN AGGREGATION
+# ==========================================
+print("\n--- 5. Revenue by vendor (group concept) ---")
+$t0 = time()
+$total_rev = sum($df:total)
+$total_profit = sum($df:ganancia)
+$avg_price = mean($df:precio_unitario)
+$avg_qty = mean($df:cantidad)
+$t1 = time()
+print("  4 agg ops:", format($t1 - $t0, 4), "s")
+print("  Total revenue:", format($total_rev, 2))
+print("  Total profit:", format($total_profit, 2))
+print("  Avg price:", format($avg_price, 2))
+print("  Avg qty:", format($avg_qty, 2))
+
+# ==========================================
+# 6. PERCENTAGE CALCULATIONS
+# ==========================================
+print("\n--- 6. Derived metrics ---")
+$t0 = time()
+$margin = $total_profit / $total_rev * 100
+$t1 = time()
+print("  Margin calc:", format($t1 - $t0, 4), "s")
+print("  Overall margin:", format($margin, 1), "%")
+
+# ==========================================
+# 7. FULL PIPELINE (load → stats → filter → dashboard)
+# ==========================================
+print("\n--- 7. Full pipeline ---")
+$t0 = time()
+
+# Reload
+$df2 = load_csv("tests/ventas_100k.csv")
+
+# Stats
+$rev = sum($df2:total)
+$profit = sum($df2:ganancia)
+$m1 = mean($df2:total)
+$m2 = mean($df2:ganancia)
+
+# Filter
+$high = $df2:total > 10000
+
+# Dashboard
+$sc = scene("POS Performance", "Benchmark")
+layout("grid", 3, 8)
+add_metric("Revenue", $rev, "$", "#4caf50")
+add_metric("Profit", $profit, "$", "#2196f3")
+add_metric("Avg Sale", $m1, "$", "#ff9800")
+add_line_plot($df2, "Revenue", "id", "total")
+add_scatter($df2, "Price vs Qty", "precio_unitario", "cantidad")
+add_histogram($df2, "Revenue Dist", "total", 15)
+guardar_grafo("tests/test_perf_dashboard.json")
+
+$t1 = time()
+print("  Full pipeline:", format($t1 - $t0, 4), "s")
+
+# ==========================================
+# SUMMARY
+# ==========================================
+$total_end = time()
+print("\n==============================================")
+print("  BENCHMARK RESULTS")
+print("  Rows processed:", $rows)
+print("  Total time:", format($total_end - $total_start, 4), "s")
+print("  Throughput:", format($rows / ($total_end - $total_start), 0), "rows/sec")
+print("==============================================")

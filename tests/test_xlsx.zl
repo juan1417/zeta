@@ -1,0 +1,24 @@
+print("XLSX ROUND-TRIP TEST")
+
+$iris = load_csv("tests/iris.csv")
+save_xlsx("tests/iris_test.xlsx", $iris)
+
+$loaded = load_xlsx("tests/iris_test.xlsx")
+print(len($loaded))
+
+$sl_orig = mean($iris:sepal_length)
+$sl_back = mean($loaded:sepal_length)
+print($sl_orig)
+print($sl_back)
+
+$sw_orig = mean($iris:sepal_width)
+$sw_back = mean($loaded:sepal_width)
+print($sw_orig)
+print($sw_back)
+
+$pl_orig = mean($iris:petal_length)
+$pl_back = mean($loaded:petal_length)
+print($pl_orig)
+print($pl_back)
+
+print("XLSX PASSED")

@@ -1,25 +1,23 @@
 # tests/test_index_assign.zl
-# Verifica la asignacion por indice: $v(i) = x para vectores y $d[k] = x para dicts.
-# Antes del fix, el parser no generaba ASIGNACION_INDICE para la sintaxis con parentesis,
-# asi que `$v(0) = 99` sobreescribia toda la variable con el valor leido en lugar de
-# modificar el elemento.
+# Verifica la asignacion por indice: $v[i] = x para vectores y $d["k"] = x para dicts.
+# La sintaxis con corchetes [] reemplaza la sintaxis anterior con parentesis ().
 
 print("=== Test Index Assignment ===")
 
 # Asignacion basica a vector
 $v = <1, 2, 3, 4, 5>
 print("initial:", $v)
-$v(0) = 99
-print("after v(0) = 99:", $v)
+$v[0] = 99
+print("after v[0] = 99:", $v)
 
 # Indice negativo
-$v(-1) = 0
-print("after v(-1) = 0:", $v)
+$v[-1] = 0
+print("after v[-1] = 0:", $v)
 
 # Valor calculado en RHS
 $v2 = <10, 20, 5>
-$v2(2) = $v2(0) + $v2(1)
-print("after v2(2) = v2(0)+v2(1):", $v2)
+$v2[2] = $v2[0] + $v2[1]
+print("after v2[2] = v2[0]+v2[1]:", $v2)
 
 # Asignacion a dict
 $d = {"a": 1, "b": 2}
@@ -41,16 +39,16 @@ print("after m[1,2] = 77:", $m)
 $vec = <0, 0, 0, 0, 0>
 $i = 0
 while ($i < 5) {
-    $vec($i) = $i * $i
+    $vec[$i] = $i * $i
     $i = $i + 1
 }
 print("vec after fill:", $vec)
 
 # Swap via index assign
 $x = <10, 20>
-$tmp = $x(0)
-$x(0) = $x(1)
-$x(1) = $tmp
+$tmp = $x[0]
+$x[0] = $x[1]
+$x[1] = $tmp
 print("after swap:", $x)
 
 print("OK index assignment")

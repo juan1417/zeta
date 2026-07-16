@@ -1,5 +1,8 @@
 #include "zeta/dl_loader.hpp"
 #include <stdexcept>
+#ifndef _WIN32
+#include <dlfcn.h>
+#endif
 
 namespace zeta {
 

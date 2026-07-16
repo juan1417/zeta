@@ -1,0 +1,143 @@
+# tests/test_adult.zl
+# Adult (Census Income) Dataset — 48,842 rows × 15 columns
+# Performance benchmark with real-world data
+
+print("==============================================")
+print("  ADULT CENSUS INCOME — 48,842 ROWS")
+print("  15 columns (numeric + string)")
+print("==============================================")
+
+$t_total = time()
+
+# 1. Load
+$t0 = time()
+$df = load_csv("tests/adult.csv")
+$t1 = time()
+print("\nLoaded:", len($df), "rows in", format($t1 - $t0, 4), "s")
+
+# 2. Preview
+print("Age (first 10):", head($df:age, 10))
+print("Hours/week (first 10):", head($df:hours_per_week, 10))
+print("Income (first 10):", head($df:income, 10))
+
+# 3. Stats on numeric columns
+print("\n--- Descriptive Statistics ---")
+
+$t0 = time()
+$age_mean = mean($df:age)
+$age_min = min($df:age)
+$age_max = max($df:age)
+$age_std = stddev($df:age)
+$t1 = time()
+print("age        — mean:", format($age_mean, 1),
+      " min:", $age_min, " max:", $age_max,
+      " std:", format($age_std, 2),
+      "  [" + format($t1 - $t0, 4) + "s]")
+
+$t0 = time()
+$fnlwgt_mean = mean($df:fnlwgt)
+$fnlwgt_sum = sum($df:fnlwgt)
+$t1 = time()
+print("fnlwgt     — mean:", format($fnlwgt_mean, 0),
+      " sum:", format($fnlwgt_sum, 0),
+      "  [" + format($t1 - $t0, 4) + "s]")
+
+$t0 = time()
+$edunum_mean = mean($df:education_num)
+$edunum_min = min($df:education_num)
+$edunum_max = max($df:education_num)
+$t1 = time()
+print("edu_num    — mean:", format($edunum_mean, 2),
+      " min:", $edunum_min, " max:", $edunum_max,
+      "  [" + format($t1 - $t0, 4) + "s]")
+
+$t0 = time()
+$capgain_sum = sum($df:capital_gain)
+$capgain_mean = mean($df:capital_gain)
+$t1 = time()
+print("cap_gain   — sum:", format($capgain_sum, 0),
+      " mean:", format($capgain_mean, 2),
+      "  [" + format($t1 - $t0, 4) + "s]")
+
+$t0 = time()
+$caploss_sum = sum($df:capital_loss)
+$caploss_mean = mean($df:capital_loss)
+$t1 = time()
+print("cap_loss   — sum:", format($caploss_sum, 0),
+      " mean:", format($caploss_mean, 2),
+      "  [" + format($t1 - $t0, 4) + "s]")
+
+$t0 = time()
+$hpw_mean = mean($df:hours_per_week)
+$hpw_max = max($df:hours_per_week)
+$hpw_std = stddev($df:hours_per_week)
+$t1 = time()
+print("hours/wk   — mean:", format($hpw_mean, 1),
+      " max:", $hpw_max,
+      " std:", format($hpw_std, 2),
+      "  [" + format($t1 - $t0, 4) + "s]")
+
+# 4. Filtering
+print("\n--- Filtering ---")
+$t0 = time()
+$high_earners = $df:income == ">50K"
+$high_count = sum($high_earners)
+$t1 = time()
+print("High earners (>50K):", $high_count, "of", len($df),
+      "  [" + format($t1 - $t0, 4) + "s]")
+
+$t0 = time()
+$old_workers = $df:age > 50
+$old_count = sum($old_workers)
+$t1 = time()
+print("Workers over 50:", $old_count,
+      "  [" + format($t1 - $t0, 4) + "s]")
+
+$t0 = time()
+$fulltime = $df:hours_per_week >= 40
+$ft_count = sum($fulltime)
+$t1 = time()
+print("Full-time (>=40h):", $ft_count,
+      "  [" + format($t1 - $t0, 4) + "s]")
+
+# 5. Derived metrics
+print("\n--- Derived Metrics ---")
+$high_pct = $high_count / len($df) * 100
+print("High earner %:", format($high_pct, 1), "%")
+print("Net capital:", format($capgain_sum - $caploss_sum, 0))
+print("Capital ROI:", format(($capgain_sum - $caploss_sum) / $capgain_sum * 100, 1), "%")
+
+# 6. Full pipeline
+print("\n--- Full Pipeline ---")
+$t0 = time()
+$df2 = load_csv("tests/adult.csv")
+$rev = sum($df2:capital_gain)
+$loss = sum($df2:capital_loss)
+$m1 = mean($df2:age)
+$m2 = mean($df2:hours_per_week)
+$sc = scene("Adult Census", "Zeta")
+layout("grid", 3, 8)
+add_metric("Population", len($df2), "", "#4caf50")
+add_metric("High Earners", $high_count, "", "#2196f3")
+add_metric("Avg Age", $m1, "yrs", "#ff9800")
+add_metric("Avg Hours", $m2, "h/wk", "#9c27b0")
+add_metric("Total Gain", $rev, "$", "#4caf50")
+add_metric("Total Loss", $loss, "$", "#f44336")
+add_line_plot($df2, "Age Distribution", "age", "hours_per_week")
+add_scatter($df2, "Age vs Hours", "age", "hours_per_week")
+add_histogram($df2, "Age Histogram", "age", 15)
+add_histogram($df2, "Hours Histogram", "hours_per_week", 10)
+add_box_plot($df2, "Hours Box", "hours_per_week")
+guardar_grafo("tests/adult_dashboard.json")
+$t1 = time()
+print("Pipeline:", format($t1 - $t0, 4), "s")
+
+$t_end = time()
+print("\n==============================================")
+print("  BENCHMARK RESULTS")
+print("  Dataset: Adult Census Income")
+print("  Rows:", len($df))
+print("  Columns: 15")
+print("  Total time:", format($t_end - $t_total, 4), "s")
+print("  Throughput:", format(len($df) / ($t_end - $t_total), 0), "rows/sec")
+print("==============================================")

@@ -92,10 +92,10 @@ Como los errores son valores, se pueden almacenar en colecciones:
 $errores = <mk_err("a", "msg1"), mk_err("b", "msg2"), 42>
 
 for ($i in range(len($errores))) {
-    if (is_error($errores($i))) {
-        print("Error en posición", $i, ":", $errores($i).mensaje)
+    if (is_error($errores[$i])) {
+        print("Error en posición", $i, ":", $errores[$i].mensaje)
     } else {
-        print("Valor:", $errores($i))
+        print("Valor:", $errores[$i])
     }
 }
 ```
@@ -139,12 +139,33 @@ if (is_error($df)) {
 
 ## 8.7. `is_null` en diferentes tipos
 
+`is_null()` funciona con todos los tipos de Zeta:
+
 ```zeta
 print(is_null(null))            # true
 print(is_null(0))               # false (0 es un número válido)
-print(is_null(""))              # false (string vacío no es null)
+print(is_null(""))              # true (string vacío se considera null)
 print(is_null(<1, null, 3>))    # <false, true, false>  (bool_vec)
+print(is_null(<"a", "", "c">))  # <false, true, false>  (str_vec)
 print(is_null(load_csv("x")))   # false (un DataFrame nunca es null)
+```
+
+## 8.8. `fill_null($valor, $defecto)` — reemplazar nulos
+
+Reemplaza todos los `null` (NaN en num, string vacío en str) por un valor por defecto:
+
+```zeta
+$v = <1, null, 3, null, 5>
+print(fill_null($v, 0))        # <1, 0, 3, 0, 5>
+
+$nombres = <"Ana", "", "Carlos">
+print(fill_null($nombres, "N/A"))   # <"Ana", "N/A", "Carlos">
+
+$x = null
+print(fill_null($x, 42))        # 42
+
+$y = 10
+print(fill_null($y, 42))        # 10 (ya tiene valor)
 ```
 
 `is_null(vec)` devuelve un `BOOL_VEC` con la verificación elemento a elemento. Esto es muy útil para máscaras:
@@ -154,7 +175,7 @@ $mask = is_null($datos:ventas)         # bool_vec
 $limpio = $datos[[!$mask]]             # filtra filas donde NO es null
 ```
 
-## 8.8. Crear nulls explícitamente: `mk_null_val()`
+## 8.9. Crear nulls explícitamente: `mk_null_val()`
 
 En algunos contextos, necesitas producir un null explícitamente (e.g., en un map):
 
@@ -169,7 +190,7 @@ fn safe_sqrt($x) {
 print(map(<4, -1, 9, -16>, safe_sqrt))    # <2, null, 3, null>
 ```
 
-## 8.9. Conversión entre `null` y `ERR`
+## 8.10. Conversión entre `null` y `ERR`
 
 No hay conversión automática. Si tienes un `null` y quieres tratarlo como error, créalo explícitamente:
 
@@ -184,7 +205,7 @@ fn check_not_null($x) {
 
 Si tienes un `ERR` y quieres "aplanarlo" a null, no hay un builtin; tienes que chequear con `is_error` y retornar null manualmente.
 
-## 8.10. Tabla de operadores sobre null
+## 8.11. Tabla de operadores sobre null
 
 | Operación | Resultado con null |
 |-----------|---------------------|
@@ -202,7 +223,7 @@ Si tienes un `ERR` y quieres "aplanarlo" a null, no hay un builtin; tienes que c
 
 **La asimetría de `==` y `!=` con null** es intencional y refleja el estándar IEEE 754. Si necesitas chequear null, usa `is_null(x)`, no `x == null`.
 
-## 8.11. Ventajas del modelo
+## 8.12. Ventajas del modelo
 
 1. **No hay try/catch**: el flujo de control nunca se interrumpe inesperadamente.
 2. **Errores son datos**: puedes analizarlos, agregarlos, graficarlos.
@@ -210,7 +231,7 @@ Si tienes un `ERR` y quieres "aplanarlo" a null, no hay un builtin; tienes que c
 4. **Sin overhead en el happy path**: un `?` se compila a una comparación y un jump; no hay unwinding.
 5. **Testeable**: puedes mockear errores fácilmente (crear un `ERR` directamente en lugar de provocar la condición).
 
-## 8.12. Cuándo **no** usar este modelo
+## 8.13. Cuándo **no** usar este modelo
 
 - **Loops críticos con muchos errores esperados**: si esperas que el 50% de las operaciones fallen, considera un patrón diferente (e.g., `try_or_default(x, 0)`).
 - **Stack traces**: no hay stack traces (solo la línea del error). Si necesitas debuggear errores profundos, añade contexto manualmente al `mensaje`.

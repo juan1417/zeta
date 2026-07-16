@@ -79,12 +79,12 @@ Métodos asociados: `len`, `upper`, `lower`, `substr`, `split`, `join`, `replace
 
 ## 3.6. Vectores
 
-`std::vector<double>` (densos, no sparse). Indexado 0-based con `()`:
+`std::vector<double>` (densos, no sparse). Indexado 0-based con `[]`:
 
 ```zeta
 $nums = <10, 20, 30, 40, 50>
-print($nums(0))       # 10
-print($nums(4))       # 50
+print($nums[0])       # 10
+print($nums[4])       # 50
 print(len($nums))     # 5
 
 # Concatenación
@@ -136,24 +136,31 @@ Nota: **no hay sintaxis de acceso por clave** en Zeta. Los diccionarios se usan 
 
 ## 3.9. DataFrames: el tipo estrella
 
-`DataFrame` es un `std::map<std::string, std::vector<double>>` — un mapa de columnas. **Todas las columnas son vectores numéricos de la misma longitud**. Esto es una simplificación: no hay tipos mezclados por columna (un `mes` textual se vuelve `null` o se descarta al cargar CSV).
+`DataFrame` soporta columnas de tipo numérico (`num`), cadena de texto (`str`) y booleano (`bool`). Cada columna almacena sus datos en vectores separados con un bitmap de nulidad.
 
 ```cpp
+struct Columna {
+    std::string tipo;                    // "num", "str", "bool"
+    std::vector<double> nums;            // datos numéricos (válido si tipo=="num")
+    std::vector<std::string> strs;       // datos de texto (válido si tipo=="str")
+    std::vector<bool> bools;             // datos booleanos (válido si tipo=="bool")
+    std::vector<bool> null_bitmap;       // null_bitmap[i] == true ⟹ fila i es null
+};
+
 struct DataFrame {
-    std::map<std::string, std::vector<double>> columnas;
-    bool validar_simetria() const;   // todas las columnas misma longitud
+    std::map<std::string, Columna> columnas;
+    std::vector<std::string> nombres_columnas;  // orden de inserción
     size_t filas() const;
-    size_t columnas_count() const;
 };
 ```
 
 ### Creación
 
 ```zeta
-# Desde CSV
+# Desde CSV — tipos inferidos automáticamente (num, str, bool)
 $df = load_csv("tests/datos.csv")
 
-# Construido a mano (como dict con vectores)
+# Construido a mano (como dict con vectores numéricos)
 $idx = <1.0, 2.0, 3.0, 4.0, 5.0>
 $ventas = <100, 200, 150, 300, 250>
 $df2 = {"idx": $idx, "ventas": $ventas}
@@ -180,7 +187,7 @@ Internamente, el intérprete itera cada fila, expone las columnas como variables
 ### Indexado (fila individual)
 
 ```zeta
-$primera = $df(0)        # Devuelve un dict con los valores de la fila 0
+$primera = $df[0]        # Devuelve un dict con los valores de la fila 0
 print($primera:ventas)   # 100
 ```
 
@@ -284,15 +291,27 @@ print($c.count)        # 1.000000
 
 Los objetos se crean con `new Nombre(args)`. Soportan herencia simple via `class Hija extends Padre`. Ver [4.13 Programacion orientada a objetos](./04-control-y-funciones.md#413-programacion-orientada-a-objetos) para la referencia completa.
 
-## 3.15. Coerción: no hay (casi)
+## 3.15. Coerción de tipos
+
+Zeta aplica coerción automática en operaciones binarias con tipos mixtos. La jerarquía es:
+
+**`bool` → `num` → `str`**
+
+| Operación | Resultado |
+|-----------|-----------|
+| `true + 10` | `11` (bool → num: true=1, false=0) |
+| `false + 10` | `10` |
+| `42 + " items"` | `"42 items"` (num → str) |
+| `true + " value"` | `"true value"` (bool → str) |
+| `"a" + 1` | `"a1"` (num → str para concat) |
+
+En comparaciones, los booleanos se convierten a num:
+
+```zeta
+print(3 > true)      # true  (3 > 1)
+print(2 == false)    # false (2 == 0)
+```
+
+## 3.16. `type()` — inspección de tipos
 
 La función `type(x)` devuelve el nombre del tipo como string. Útil para debug y polimorfismo.
-
-## 3.16. Coerción: no hay (casi)
-
-Zeta **no convierte tipos implícitamente** salvo en dos casos:
-
-1. **`null` (NaN) en operaciones aritméticas**: produce `null` (no error).
-2. **Vector + num** en algunas funciones (e.g., `push($vec, 5)` acepta número y lo agrega).
-
-El resto requiere coerción explícita (e.g., `int($x)` no existe; usa `floor($x)` o `round($x)`).
