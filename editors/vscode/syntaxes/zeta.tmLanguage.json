@@ -1,0 +1,149 @@
+{
+  "name": "Zeta",
+  "scopeName": "source.zeta",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#keywords" },
+    { "include": "#constants" },
+    { "include": "#variables" },
+    { "include": "#functions" },
+    { "include": "#numbers" },
+    { "include": "#strings" },
+    { "include": "#operators" },
+    { "include": "#types" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.zeta",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.zeta",
+          "match": "\\b(if|else|for|while|in|return|break|continue|fn|class|new|this|extends|include|export|as)\\b"
+        },
+        {
+          "name": "keyword.operator.logical.zeta",
+          "match": "&&|\\|\\||!"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.zeta",
+          "match": "\\b(true|false|null|PI|E|INFINITY|MAX_NUM|MIN_NUM)\\b"
+        }
+      ]
+    },
+    "variables": {
+      "patterns": [
+        {
+          "name": "variable.other.zeta",
+          "match": "\\$[a-zA-Z_][a-zA-Z0-9_]*"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?=\\()",
+          "captures": {
+            "1": { "name": "entity.name.function.zeta" }
+          }
+        },
+        {
+          "match": "\\b(load_csv|load_xlsx|mean|count|sum|min|max|stddev|abs|round|floor|ceil|pow|sqrt|format|time|len|upper|lower|substr|split|join|replace|find|reverse|sort|unique|push|range|map|filter|reduce|keys|values|type|transpose|dot|head|select|drop|drop_nan|is_null|fill_null|is_error|plot|metric|dashboard|serve|route)\\b",
+          "captures": {
+            "0": { "name": "support.function.builtin.zeta" }
+          }
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.zeta",
+          "match": "\\b-?\\d[\\d,]*\\.\\d+([eE][+-]?\\d+)?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.zeta",
+          "match": "\\b-?\\d[\\d,]*\\b"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.zeta",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.zeta",
+              "match": "\\\\[\\\\\"\\nrt]"
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.zeta",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.zeta",
+              "match": "\\\\[\\\\'\\nrt]"
+            }
+          ]
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.assignment.zeta",
+          "match": "="
+        },
+        {
+          "name": "keyword.operator.comparison.zeta",
+          "match": "==|!=|>=|<=|>|<"
+        },
+        {
+          "name": "keyword.operator.arithmetic.zeta",
+          "match": "\\+|-|\\*|/|%"
+        },
+        {
+          "name": "keyword.operator.colon.zeta",
+          "match": ":"
+        },
+        {
+          "name": "keyword.operator.dot.zeta",
+          "match": "\\."
+        },
+        {
+          "name": "keyword.operator.filter.zeta",
+          "match": "\\[\\[|\\]\\]"
+        },
+        {
+          "name": "keyword.operator.error.zeta",
+          "match": "\\?"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "match": "\\b(number|string|bool|vector|matrix|dict|DataFrame|function|graph|metric|dashboard|any)\\b",
+          "captures": {
+            "0": { "name": "support.type.zeta" }
+          }
+        }
+      ]
+    }
+  }
+}

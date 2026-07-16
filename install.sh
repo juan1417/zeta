@@ -70,6 +70,18 @@ set_prefix() {
     LIB_DIR="${PREFIX}/share/zeta/lib"
     DOC_DIR="${PREFIX}/share/zeta/docs"
 
+    # Check if we need sudo
+    SUDO=""
+    if [ ! -w "$(dirname "$BIN_DIR")" ] 2>/dev/null; then
+        if command -v sudo &>/dev/null; then
+            SUDO="sudo"
+            info "Need elevated permissions for ${PREFIX}"
+            sudo -v 2>/dev/null || error "Cannot obtain sudo privileges"
+        else
+            error "No write permission to ${PREFIX} and sudo is not available.\n  Try: $0 ~/.local"
+        fi
+    fi
+
     info "Install prefix: ${PREFIX}"
 }
 
@@ -116,31 +128,31 @@ install_files() {
 
     # Create directories
     info "Creating directories..."
-    mkdir -p "$BIN_DIR"
-    mkdir -p "$LIB_DIR"
-    mkdir -p "$DOC_DIR"
+    $SUDO mkdir -p "$BIN_DIR"
+    $SUDO mkdir -p "$LIB_DIR"
+    $SUDO mkdir -p "$DOC_DIR"
 
     # Install binaries
     info "Installing binaries to ${BIN_DIR}..."
-    for bin in zeta zeta_server zeta_term; do
+    for bin in zeta zeta_server zeta_term zeta-lsp; do
         if [ -f "$bin" ]; then
-            cp "$bin" "$BIN_DIR/"
-            chmod +x "$BIN_DIR/$bin"
+            $SUDO cp "$bin" "$BIN_DIR/"
+            $SUDO chmod +x "$BIN_DIR/$bin"
             ok "  ${bin} -> ${BIN_DIR}/${bin}"
         fi
     done
 
     # Dashboard (if built)
     if [ -f "zeta_dashboard" ]; then
-        cp "zeta_dashboard" "$BIN_DIR/"
-        chmod +x "$BIN_DIR/zeta_dashboard"
+        $SUDO cp "zeta_dashboard" "$BIN_DIR/"
+        $SUDO chmod +x "$BIN_DIR/zeta_dashboard"
         ok "  zeta_dashboard -> ${BIN_DIR}/zeta_dashboard"
     fi
 
     # Install .zl library files
     info "Installing Zeta libraries to ${LIB_DIR}..."
     if ls lib/*.zl 2>/dev/null | head -1 >/dev/null 2>&1; then
-        cp lib/*.zl "$LIB_DIR/" 2>/dev/null || true
+        $SUDO cp lib/*.zl "$LIB_DIR/" 2>/dev/null || true
         ok "  Library files installed"
     else
         warn "  No .zl library files found"
@@ -149,7 +161,7 @@ install_files() {
     # Install docs
     info "Installing documentation to ${DOC_DIR}..."
     if ls docs/*.md 2>/dev/null | head -1 >/dev/null 2>&1; then
-        cp docs/*.md "$DOC_DIR/" 2>/dev/null || true
+        $SUDO cp docs/*.md "$DOC_DIR/" 2>/dev/null || true
         ok "  Documentation installed"
     fi
 
@@ -161,7 +173,7 @@ verify_install() {
     info "Verifying installation..."
 
     local errors=0
-    for bin in zeta zeta_server zeta_term; do
+    for bin in zeta zeta_server zeta_term zeta-lsp; do
         if [ -x "${BIN_DIR}/${bin}" ]; then
             ok "  ${bin} OK"
         else

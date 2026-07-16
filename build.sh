@@ -74,23 +74,44 @@ build_term() {
     echo "[BUILD] OK -> ./zeta_term"
 }
 
+build_lsp() {
+    echo "[BUILD] Compiling zeta-lsp (Language Server)..."
+    mkdir -p build_tmp
+    for f in $MINIZ_C_SRCS; do
+        obj="build_tmp/$(basename $f .c).o"
+        cc -c -O2 -I deps/miniz -o "$obj" "$f" 2>/dev/null
+    done
+    MINIZ_OBJS=$(ls build_tmp/miniz*.o 2>/dev/null | tr '\n' ' ')
+    clang++ -std=c++20 -O2 \
+        -I include -I . -I deps \
+        -Wno-deprecated-literal-operator -Wno-unused-variable -Wno-unused-but-set-variable \
+        $OPENXLSX_INCLUDES \
+        -o zeta-lsp \
+        lsp/zeta-lsp.cpp lsp/transport.cpp lsp/builtins.cpp lsp/analyzer.cpp \
+        src/lexer/lexer.cpp src/parser/parser.cpp src/core/valor_zeta.cpp \
+        src/core/errores.cpp src/core/estadisticas.cpp $MINIZ_OBJS -lz 2>&1
+    echo "[BUILD] OK -> ./zeta-lsp"
+}
+
 case "${1:-cli}" in
     cli|zeta)    build_zeta ;;
     server)      build_server ;;
     dashboard|renderer) build_dashboard ;;
     term|terminal) build_term ;;
+    lsp)         build_lsp ;;
     all)
         build_zeta
         build_server
         build_dashboard
         build_term
+        build_lsp
         ;;
     clean)
-        rm -f zeta zeta_server zeta_dashboard zeta_term
+        rm -f zeta zeta_server zeta_dashboard zeta_term zeta-lsp
         echo "[CLEAN] Removed binaries"
         ;;
     *)
-        echo "Usage: $0 [cli|server|dashboard|term|all|clean]"
+        echo "Usage: $0 [cli|server|dashboard|term|lsp|all|clean]"
         exit 1
         ;;
 esac

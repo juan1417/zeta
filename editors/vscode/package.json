@@ -1,0 +1,47 @@
+{
+  "name": "zeta-lang",
+  "displayName": "Zeta Language",
+  "description": "Syntax highlighting, diagnostics, and IntelliSense for Zeta language",
+  "version": "0.1.0",
+  "publisher": "juan1417",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Programming Languages"],
+  "keywords": ["zeta", "data analysis", "analytics"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "zeta",
+        "aliases": ["Zeta", "zeta"],
+        "extensions": [".zl", ".zeta"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "zeta",
+        "scopeName": "source.zeta",
+        "path": "./syntaxes/zeta.tmLanguage.json"
+      }
+    ],
+    "configurationDefaults": {
+      "[zeta]": {
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}
