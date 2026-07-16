@@ -54,7 +54,12 @@
     "zeta_desc": "CLI interpreter. Runs <code>.zl</code> scripts.",
     "server_desc": "HTTP REST server with Crow.",
     "dashboard_desc": "OpenGL + ImGui + ImPlot renderer.",
-    "term_desc": "ANSI 24-bit renderer. No OpenGL, SSH-friendly."
+    "term_desc": "ANSI 24-bit renderer. No OpenGL, SSH-friendly.",
+    "lsp_desc": "Language Server for editors. Autocomplete, errors, hover."
+  },
+  "editors": {
+    "title": "Editor Setup",
+    "subtitle": "Install zeta-lsp in your favorite editor for autocomplete, real-time errors and more."
   },
   "docs_section": {
     "title": "Documentation",

@@ -11,7 +11,7 @@ print("==============================================")
 # ==========================================
 print("\n--- Iris (150 rows × 5 cols) ---")
 $t0 = time()
-$df = load_csv("tests/iris.csv")
+$df = load_csv("iris.csv")
 $t_load = time() - $t0
 
 $t0 = time()
@@ -28,7 +28,7 @@ add_box_plot($df, "Sepal Width Box", "sepal_width")
 $t_scene = time() - $t0
 
 $t0 = time()
-guardar_grafo("tests/bench_iris.json")
+guardar_grafo("bench_iris.json")
 $t_save = time() - $t0
 
 print("  Load:", format($t_load * 1000, 1), "ms")
@@ -42,7 +42,7 @@ print("  Nodes: 8")
 # ==========================================
 print("\n--- Titanic (891 rows × 9 cols) ---")
 $t0 = time()
-$df = load_csv("tests/titanic_clean.csv")
+$df = load_csv("titanic_clean.csv")
 $t_load = time() - $t0
 
 $t0 = time()
@@ -115,7 +115,7 @@ print("  Nodes: 14")
 # ==========================================
 print("\n--- Adult Census (48K rows × 15 cols) ---")
 $t0 = time()
-$df = load_csv("tests/adult.csv")
+$df = load_csv("adult.csv")
 $t_load = time() - $t0
 
 $t0 = time()
@@ -137,7 +137,7 @@ add_linear_regression($df, "Age-Hours Regression", "age", "hours_per_week")
 $t_scene = time() - $t0
 
 $t0 = time()
-guardar_grafo("tests/bench_adult.json")
+guardar_grafo("bench_adult.json")
 $t_save = time() - $t0
 
 print("  Load:", format($t_load * 1000, 1), "ms")

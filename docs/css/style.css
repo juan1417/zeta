@@ -690,6 +690,58 @@ code { font-family: var(--font-mono); }
   white-space: nowrap;
 }
 
+/* ─── EDITORS SECTION ──────────────────────────────────────────────── */
+.editors-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.editor-card {
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.editor-icon {
+  margin-bottom: var(--space-3);
+  color: var(--accent);
+}
+
+.editor-card h4 {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: var(--space-3);
+}
+
+.editor-steps {
+  text-align: left;
+}
+
+.editor-steps code {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-warm);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+  overflow-x: auto;
+  white-space: nowrap;
+  margin-bottom: var(--space-2);
+}
+
+.editor-steps p {
+  font-size: var(--text-xs);
+  color: var(--fg-3);
+  margin-top: var(--space-2);
+}
+
 /* ─── DOCS SECTION ──────────────────────────────────────────────── */
 .docs-grid {
   display: grid;
@@ -1103,6 +1155,7 @@ code { font-family: var(--font-mono); }
   .download-alt { gap: var(--space-4); }
   .install-tabs { flex-wrap: wrap; }
   .binaries-grid { grid-template-columns: repeat(2, 1fr); }
+  .editors-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 480px) {
@@ -1113,6 +1166,7 @@ code { font-family: var(--font-mono); }
   .section { padding: var(--section-y-phone) 0; }
   .container { padding: 0 var(--container-gutter-phone); }
   .binaries-grid { grid-template-columns: 1fr; }
+  .editors-grid { grid-template-columns: 1fr; }
 }
 
 /* ─── DOCS MOBILE ──────────────────────────────────────────────── */

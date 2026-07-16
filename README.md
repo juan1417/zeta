@@ -81,3 +81,75 @@ print("Columna 'ventas':", $datos:ventas)
 | `zeta_server` | ~1.2 MB | Servidor HTTP REST con Crow | libstdc++, asio (header-only), json (header-only) |
 | `zeta_dashboard` | ~3.6 MB | Renderer OpenGL nativo (ImGui+ImPlot) | libGL, libGLEW, libX11, libpthread |
 | `zeta_term` | ~234 KB | Renderer ANSI 24-bit para terminal | libstdc++ (sin OpenGL) |
+| `zeta-lsp` | ~400 KB | Language Server Protocol para editores | libstdc++ (sin OpenGL) |
+
+---
+
+## Editor Setup (LSP)
+
+Zeta tiene un **Language Server** que funciona en cualquier editor compatible con LSP.
+Proporciona: autocompletado, errores en tiempo real, hover info, go-to-definition, firma de funciones y find references.
+
+### VS Code
+
+```bash
+cd editors/vscode
+npm install
+npm run package
+code --install-extension *.vsix
+```
+
+### Neovim (0.11+)
+
+Copia `editors/nvim/zeta-lsp.lua` a tu config:
+
+```bash
+# Opcional: lazy.nvim
+# { dir = "/home/juan/Proyectos/zeta/editors/nvim" }
+
+# Manual: agregar a init.lua
+require('zeta-lsp')
+```
+
+### Vim (vim-lsp)
+
+```vim
+" En tu .vimrc
+Plug 'prabirshrestha/vim-lsp'
+autocmd User lsp_setup call lsp#register_server({
+    \ 'name': 'zeta-lsp',
+    \ 'cmd': {server_info -> ['zeta-lsp']},
+    \ 'whitelist': ['zeta'],
+    \ })
+autocmd BufNewFile,BufRead *.zl,*.zeta setfiletype zeta
+```
+
+### Sublime Text (LSP)
+
+```json
+// Package Control > LSP > LSP Settings
+{
+    "clients": {
+        "zeta-lsp": {
+            "command": ["zeta-lsp"],
+            "selector": "source.zeta",
+            "languageId": "zeta"
+        }
+    }
+}
+```
+
+### Emacs (eglot)
+
+```elisp
+;; En init.el
+(add-hook 'zeta-mode-hook 'eglot-ensure)
+(add-to-list 'auto-mode-alist '("\\.zl\\'" . zeta-mode))
+(add-to-list 'auto-mode-alist '("\\.zeta\\'" . zeta-mode))
+```
+
+### Compilar el LSP
+
+```bash
+./build.sh lsp    # Genera ./zeta-lsp
+```

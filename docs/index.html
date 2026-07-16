@@ -254,6 +254,60 @@
           <p data-i18n="download.term_desc">Renderer ANSI 24-bit. Sin OpenGL, SSH-friendly.</p>
           <code>zeta_term --host localhost --width 120</code>
         </div>
+
+        <div class="binary-card reveal">
+          <div class="binary-header">
+            <h4>zeta-lsp</h4>
+            <span class="binary-size">~400 KB</span>
+          </div>
+          <p data-i18n="download.lsp_desc">Language Server para editores. Autocompletado, errores, hover.</p>
+          <code>./build.sh lsp</code>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EDITOR SETUP -->
+  <section class="section" id="editors">
+    <div class="container">
+      <div class="section-header reveal">
+        <h2 data-i18n="editors.title">Editor Setup</h2>
+        <p data-i18n="editors.subtitle">Instala zeta-lsp en tu editor favorito para autocompletado, errores en tiempo real y más.</p>
+      </div>
+
+      <div class="editors-grid">
+        <div class="editor-card reveal">
+          <div class="editor-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><path d="M17.583 2.427L21.583 6.427L13.000 15.010L21.583 23.593L17.583 27.593L6.000 16.010L17.583 2.427Z"/></svg>
+          </div>
+          <h4>VS Code</h4>
+          <div class="editor-steps">
+            <code>cd editors/vscode && npm install && npm run package</code>
+            <code>code --install-extension *.vsix</code>
+          </div>
+        </div>
+
+        <div class="editor-card reveal">
+          <div class="editor-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><circle cx="12" cy="12" r="10"/></svg>
+          </div>
+          <h4>Neovim</h4>
+          <div class="editor-steps">
+            <code>require('zeta-lsp')</code>
+            <p>Keymaps: <code>gd</code> definition, <code>gr</code> references, <code>K</code> hover</p>
+          </div>
+        </div>
+
+        <div class="editor-card reveal">
+          <div class="editor-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          </div>
+          <h4>Vim / Emacs / Sublime</h4>
+          <div class="editor-steps">
+            <code>cmd = ['zeta-lsp']</code>
+            <p>Ver docs para config completa</p>
+          </div>
+        </div>
       </div>
     </div>
   </section>
