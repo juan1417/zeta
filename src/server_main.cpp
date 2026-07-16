@@ -250,6 +250,7 @@ int main(int argc, char* argv[]) {
 
     // Load initial script if provided
     if (!script_file.empty()) {
+        interpreter->set_script_path(script_file);
         std::ifstream file(script_file);
         if (!file.is_open()) {
             std::cerr << "Error: No se pudo abrir " << script_file << "\n";

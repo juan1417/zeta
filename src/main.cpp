@@ -48,6 +48,7 @@ int main(int argc, char* argv[]) {
         auto ast = parser.parsear();
 
         zeta::Interpreter interpreter;
+        interpreter.set_script_path(archivo_path);
         auto resultado = interpreter.ejecutar(std::move(ast));
 
         if (zeta::is_error(resultado)) {

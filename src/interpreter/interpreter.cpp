@@ -1621,7 +1621,7 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         if (args.empty()) return mk_err("runtime", "load_csv requiere una ruta de archivo", 0);
         if (args[0]->tipo != ValorImpl::STR) return mk_err("runtime", "load_csv requiere un string como ruta", 0);
 
-        std::string ruta = args[0]->str_val;
+        std::string ruta = resolver_ruta(args[0]->str_val);
         char delim = ',';
         if (args.size() >= 2 && args[1]->tipo == ValorImpl::STR && !args[1]->str_val.empty()) {
             delim = args[1]->str_val[0];
@@ -1776,7 +1776,7 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         if (args.empty()) return mk_err("runtime", "load_json requiere una ruta de archivo", 0);
         if (args[0]->tipo != ValorImpl::STR) return mk_err("runtime", "load_json requiere un string como ruta", 0);
 
-        std::string ruta = args[0]->str_val;
+        std::string ruta = resolver_ruta(args[0]->str_val);
         std::ifstream archivo(ruta);
         if (!archivo.is_open()) {
             return mk_err("io", "No se pudo abrir el archivo: " + ruta, 0);
@@ -1885,9 +1885,10 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         if (args.empty()) return mk_err("runtime", "load_xlsx requiere una ruta de archivo", 0);
         if (args[0]->tipo != ValorImpl::STR) return mk_err("runtime", "load_xlsx requiere un string como ruta", 0);
         int sheet = (args.size() >= 2 && args[1]->tipo == ValorImpl::NUM) ? (int)args[1]->num_val : 0;
-        DataFrame df = load_xlsx_file(args[0]->str_val, sheet);
+        std::string ruta = resolver_ruta(args[0]->str_val);
+        DataFrame df = load_xlsx_file(ruta, sheet);
         if (df.nombres_columnas.empty()) {
-            return mk_err("io", "No se pudo leer XLSX: " + args[0]->str_val, 0);
+            return mk_err("io", "No se pudo leer XLSX: " + ruta, 0);
         }
         return mk_df(std::move(df));
     }
@@ -1896,7 +1897,8 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         if (args.size() < 2) return mk_err("runtime", "save_xlsx requiere ruta y DataFrame", 0);
         if (args[0]->tipo != ValorImpl::STR) return mk_err("runtime", "save_xlsx requiere un string como ruta", 0);
         if (args[1]->tipo != ValorImpl::DF) return mk_err("runtime", "save_xlsx requiere un DataFrame", 0);
-        std::string msg = save_xlsx_file(args[0]->str_val, args[1]->df_val);
+        std::string ruta = resolver_ruta(args[0]->str_val);
+        std::string msg = save_xlsx_file(ruta, args[1]->df_val);
         return mk_str(msg);
     }
 
@@ -1911,8 +1913,9 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
             delim = args[2]->str_val[0];
         }
 
-        std::ofstream out(args[0]->str_val);
-        if (!out.is_open()) return mk_err("io", "No se pudo crear: " + args[0]->str_val, 0);
+        std::string ruta = resolver_ruta(args[0]->str_val);
+        std::ofstream out(ruta);
+        if (!out.is_open()) return mk_err("io", "No se pudo crear: " + ruta, 0);
 
         for (size_t i = 0; i < df.nombres_columnas.size(); ++i) {
             if (i > 0) out << delim;
@@ -1953,10 +1956,9 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         if (args[1]->tipo != ValorImpl::DICT) return mk_err("runtime", "load_lib requiere un dict de {nombre: firma}", 0);
 
         std::string ruta = args[0]->str_val;
-        std::string ruta_abs = ruta;
-        if (!fs::path(ruta).is_absolute()) {
-            if (fs::exists(ruta)) ruta_abs = ruta;
-            else if (fs::exists("./lib/" + ruta)) ruta_abs = "./lib/" + ruta;
+        std::string ruta_abs = resolver_ruta(ruta);
+        if (ruta_abs == ruta && !fs::path(ruta).is_absolute()) {
+            if (fs::exists("./lib/" + ruta)) ruta_abs = "./lib/" + ruta;
             else {
                 for (const auto& ip : include_paths_) {
                     fs::path p = fs::path(ip) / ruta;
@@ -2079,14 +2081,15 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
 
     if (nombre == "guardar_grafo") {
         if (!grafo_actual_) return mk_err("scene", "No hay scene activa", 0);
-        std::string ruta = (args.size() > 0 && args[0]->tipo == ValorImpl::STR) ? args[0]->str_val : "grafo.json";
+        std::string ruta = (args.size() > 0 && args[0]->tipo == ValorImpl::STR) ? resolver_ruta(args[0]->str_val) : "grafo.json";
         return mk_str(guardar_grafo_json(ruta, *grafo_actual_));
     }
 
     if (nombre == "cargar_grafo") {
         if (args.empty() || args[0]->tipo != ValorImpl::STR) return mk_err("runtime", "cargar_grafo requiere ruta", 0);
-        auto s = cargar_grafo_json(args[0]->str_val);
-        if (!s) return mk_err("io", "No se pudo cargar: " + args[0]->str_val, 0);
+        std::string ruta = resolver_ruta(args[0]->str_val);
+        auto s = cargar_grafo_json(ruta);
+        if (!s) return mk_err("io", "No se pudo cargar: " + ruta, 0);
         grafo_actual_ = s;
         return mk_scene(s);
     }
@@ -2533,12 +2536,27 @@ void Interpreter::agregar_include_path(const std::string& path) {
     include_paths_.push_back(path);
 }
 
+void Interpreter::set_script_path(const std::string& path) {
+    script_dir_ = fs::path(path).parent_path().string();
+    if (script_dir_.empty()) script_dir_ = ".";
+}
+
+std::string Interpreter::resolver_ruta(const std::string& ruta) const {
+    if (fs::path(ruta).is_absolute()) return ruta;
+    if (!script_dir_.empty()) {
+        std::string intento = (fs::path(script_dir_) / ruta).string();
+        if (fs::exists(intento)) return intento;
+    }
+    return ruta;
+}
+
 std::filesystem::path Interpreter::resolver_ruta_modulo(const std::string& ruta) const {
     fs::path p(ruta);
     if (p.is_absolute() && fs::exists(p)) return p;
 
     std::vector<std::string> candidatos_ext{".zl", ""};
     std::vector<fs::path> bases;
+    if (!script_dir_.empty()) bases.push_back(fs::path(script_dir_) / "lib");
     bases.push_back(fs::current_path() / "lib");
     for (const auto& ip : include_paths_) bases.push_back(fs::path(ip) / "lib");
     if (const char* home = std::getenv("HOME")) bases.push_back(fs::path(home) / ".zeta" / "lib");
