@@ -1,10 +1,10 @@
 # Build artifacts
 build/
-zeta
-zeta_server
-zeta_dashboard
-zeta_term
-test_zeta
+/zeta
+/zeta_server
+/zeta_dashboard
+/zeta_term
+/test_zeta
 *.log
 *.o
 *.so
@@ -25,8 +25,8 @@ tests/*.txt
 tests/e2e_*
 
 # Crash dumps
-core
-core.*
+/core
+/core.*
 *.core
 
 # OS
