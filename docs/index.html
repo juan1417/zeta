@@ -43,7 +43,7 @@
   <!-- HERO -->
   <section class="hero">
     <div class="container">
-      <span class="hero-eyebrow" data-i18n="hero.eyebrow">v0.1.1 — MIT License</span>
+      <span class="hero-eyebrow" data-i18n="hero.eyebrow">v0.2.0 — MIT License</span>
       <h1 data-i18n="hero.title">Analiza datos.<br><span>Transforma ideas.</span></h1>
       <p class="hero-sub" data-i18n="hero.sub">Zeta es un lenguaje de análisis y transformación de datos con sintaxis híbrida Rust/Python, motor C++20 nativo y renderers para dashboard y terminal.</p>
       <div class="hero-actions">
@@ -121,6 +121,12 @@
           <div class="feature-icon">&#9889;</div>
           <h3 data-i18n="features.engine_title">Motor C++20</h3>
           <p data-i18n="features.engine_desc">Intérprete de alto rendimiento sin GC. Pipeline completo: Lexer &rarr; Parser &rarr; AST &rarr; Interpreter.</p>
+        </div>
+
+        <div class="feature-card reveal">
+          <div class="feature-icon">&#9878;</div>
+          <h3 data-i18n="features.memory_title">Memoria tipo Rust</h3>
+          <p data-i18n="features.memory_desc">Arena allocator para temporales, valores inline para NUM/BOOL (0 heap), y cleanup determinístico sin GC pauses.</p>
         </div>
 
         <div class="feature-card reveal">

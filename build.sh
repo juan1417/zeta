@@ -10,7 +10,7 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
-CORE_SRCS="src/core/valor_zeta.cpp src/core/tabla_simbolos.cpp src/core/estadisticas.cpp src/core/errores.cpp src/core/serializador.cpp src/core/grafo_json.cpp src/core/xlsx_reader.cpp deps/pugixml/src/pugixml.cpp src/lexer/lexer.cpp src/parser/parser.cpp src/interpreter/interpreter.cpp src/dl_loader/dl_loader.cpp"
+CORE_SRCS="src/core/valor_zeta.cpp src/core/tabla_simbolos.cpp src/core/estadisticas.cpp src/core/errores.cpp src/core/serializador.cpp src/core/grafo_json.cpp src/core/xlsx_reader.cpp src/core/arena.cpp src/core/distribuciones.cpp src/core/window_functions.cpp deps/pugixml/src/pugixml.cpp src/lexer/lexer.cpp src/parser/parser.cpp src/interpreter/interpreter.cpp src/dl_loader/dl_loader.cpp"
 INCLUDES="-std=c++20 -I include -I ."
 FLAGS="-Wno-deprecated-literal-operator -Wno-unused-variable -Wno-unused-but-set-variable -O2"
 

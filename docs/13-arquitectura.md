@@ -198,6 +198,8 @@ Cada tipo de nodo tiene su método:
 - `evaluar_filtro_filas`: itera filas del DF, evalúa la condición en cada una, construye DF filtrado.
 - `evaluar_llamada_funcion`: distingue entre nativa y de usuario.
 
+El intérprete también soporta funciones de manipulación de datos: `group_by`, `agg`, y `merge` para operaciones de agregación y joins sobre DataFrames.
+
 ## 13.5. Tabla de Símbolos
 
 **Archivo**: `src/core/tabla_simbolos.cpp` (40 líneas). **Header**: `include/zeta/tabla_simbolos.hpp`.
@@ -408,7 +410,70 @@ CROW_ROUTE(app, "/api/datos")
 4. Implementa un dispatcher por `node.tipo`.
 5. Agrega el target al `build.sh`.
 
-## 13.14. Métricas de tamaño
+## 13.14. Modelo de memoria (v0.2)
+
+Zeta usa un **modelo híbrido inspirado en Rust**: reference counting para valores persistentes, arena allocator para temporales.
+
+### Arena allocator
+
+```cpp
+// include/zeta/arena.hpp
+class Arena {
+    std::vector<Block> blocks_;  // 64KB-1MB bloques
+    std::size_t current_block_;
+    std::size_t current_offset_;
+    std::vector<std::function<void()>> tracked_dtors_;
+public:
+    template<typename T, typename... Args>
+    T* create(Args&&... args);  // Arena bump allocation
+    void reset();               // O(1) bulk reclamation
+    std::size_t bytes_used() const;
+};
+```
+
+- **Bump allocation**: Solo incrementa un pointer. O(1), sin malloc/free.
+- **Bulk reclamation**: `reset()` libera todo de golpe. O(número de bloques).
+- **Destructor tracking**: Para tipos con destruidor no trivial (string, vector), registra callbacks que se llaman en `reset()`.
+
+### Valor value type
+
+```cpp
+// include/zeta/valor.hpp
+struct Valor {
+    enum class Tag : uint8_t { EMPTY, NUM, BOOL, STR, VEC, ... };
+    Tag tag_;
+    union { double num_val; bool bool_val; };  // Inline para NUM/BOOL
+    ValorImpl* ptr_;  // Arena-backed para tipos grandes
+};
+```
+
+- **NUM/BOOL**: 8 bytes inline, 0 heap allocations.
+- **STR/VEC/etc**: 1 arena bump, no refcount.
+- **Conversión a ValorZeta**: `to_zeta()` crea heap copy solo cuando es necesario.
+
+### Scope chains
+
+```cpp
+struct TablaSimbolos {
+    TablaSimbolos* padre = nullptr;  // Raw pointer (borrowed reference)
+    std::map<std::string, ValorZeta> variables;
+};
+```
+
+- El padre **siempre** vive más que el hijo (scope nesting).
+- Las closures mantienen el scope con `shared_ptr` (para lifetime safety).
+- Las búsquedas de variables usan raw pointers — sin overhead de refcount.
+
+### Impacto en performance
+
+| Operación | Antes (v0.1) | Después (v0.2) | Mejora |
+|-----------|--------------|----------------|--------|
+| `mk_num(42)` | new + atomic inc | Union inline (8 bytes) | ~10x |
+| Scope lookup | refcount chain | Raw pointer chase | ~3x |
+| `clear_arena()` | N/A | O(1) bulk free | ∞ |
+| Vector temporales | Heap + refcount | Arena bump | ~5x |
+
+## 13.15. Métricas de tamaño
 
 | Componente | Líneas | % del total |
 |------------|--------|-------------|

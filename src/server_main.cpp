@@ -240,7 +240,23 @@ int main(int argc, char* argv[]) {
         } else if (arg == "--script" && i + 1 < argc) {
             script_file = argv[++i];
         } else if (arg == "--help") {
-            std::cout << "Uso: zeta_server [--port PORT] [--script ARCHIVO]\n";
+            std::cout << "Zeta Server - Servidor HTTP REST\n\n";
+            std::cout << "Uso: zeta_server [opciones]\n\n";
+            std::cout << "Opciones:\n";
+            std::cout << "  --help                Mostrar esta ayuda\n";
+            std::cout << "  --port PORT           Puerto del servidor (default: 8080)\n";
+            std::cout << "  --script ARCHIVO      Ejecutar script al iniciar\n";
+            std::cout << "\nEndpoints:\n";
+            std::cout << "  GET  /                 UI web (HTML+Chart.js)\n";
+            std::cout << "  GET  /api/datos        Variables globales como JSON\n";
+            std::cout << "  GET  /api/metricas     Metricas KPI\n";
+            std::cout << "  GET  /api/dashboard    Config del dashboard\n";
+            std::cout << "  GET  /api/grafo        Scene spec (para renderers)\n";
+            std::cout << "  POST /api/run          Ejecutar codigo Zeta\n";
+            std::cout << "\nEjemplos:\n";
+            std::cout << "  zeta_server                          Iniciar en puerto 8080\n";
+            std::cout << "  zeta_server --port 9000              Puerto custom\n";
+            std::cout << "  zeta_server --script datos.zl        Cargar script al iniciar\n";
             return 0;
         }
     }

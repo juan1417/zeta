@@ -10,8 +10,19 @@
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cout << "Zeta Language v0.1.0" << std::endl;
-        std::cout << "Uso: zeta <archivo.zeta> [--debug]" << std::endl;
-        return 1;
+        std::cout << "Uso: zeta <archivo.zl> [opciones]" << std::endl;
+        std::cout << std::endl;
+        std::cout << "Opciones:" << std::endl;
+        std::cout << "  --help, -h       Mostrar esta ayuda" << std::endl;
+        std::cout << "  --debug, -d      Mostrar informacion de debug al finalizar" << std::endl;
+        std::cout << "  --version, -v    Mostrar version" << std::endl;
+        std::cout << std::endl;
+        std::cout << "Ejemplos:" << std::endl;
+        std::cout << "  zeta script.zl              Ejecutar un script" << std::endl;
+        std::cout << "  zeta script.zl --debug      Ejecutar con debug" << std::endl;
+        std::cout << std::endl;
+        std::cout << "Documentacion: https://github.com/juan1417/zeta" << std::endl;
+        return 0;
     }
 
     bool debug = false;
@@ -20,8 +31,25 @@ int main(int argc, char* argv[]) {
         std::string arg = argv[i];
         if (arg == "--debug" || arg == "-d") {
             debug = true;
-        } else {
+        } else if (arg == "--help" || arg == "-h") {
+            // Reprint help when explicitly asked
+            std::cout << "Zeta Language v0.1.0" << std::endl;
+            std::cout << "Uso: zeta <archivo.zl> [opciones]" << std::endl;
+            std::cout << std::endl;
+            std::cout << "Opciones:" << std::endl;
+            std::cout << "  --help, -h       Mostrar esta ayuda" << std::endl;
+            std::cout << "  --debug, -d      Mostrar informacion de debug al finalizar" << std::endl;
+            std::cout << "  --version, -v    Mostrar version" << std::endl;
+            return 0;
+        } else if (arg == "--version" || arg == "-v") {
+            std::cout << "zeta v0.1.0" << std::endl;
+            return 0;
+        } else if (arg[0] != '-') {
             archivo_path = arg;
+        } else {
+            std::cerr << "Opcion desconocida: " << arg << std::endl;
+            std::cerr << "Usa --help para ver las opciones disponibles." << std::endl;
+            return 1;
         }
     }
 

@@ -1,5 +1,7 @@
 #include "zeta/interpreter.hpp"
 #include "zeta/estadisticas.hpp"
+#include "zeta/distribuciones.hpp"
+#include "zeta/window_functions.hpp"
 #include "zeta/errores.hpp"
 #include "zeta/lexer.hpp"
 #include "zeta/dl_loader.hpp"
@@ -7,6 +9,7 @@
 #include "zeta/grafo_json.hpp"
 #include "zeta/serializador.hpp"
 #include "zeta/xlsx_reader.hpp"
+#include "zeta/valor.hpp"
 #include <iostream>
 #include <sstream>
 #include <fstream>
@@ -18,6 +21,10 @@
 #include <iomanip>
 #include <filesystem>
 #include <cstdlib>
+#include <set>
+#include <map>
+#include <numeric>
+#include <random>
 
 namespace zeta {
 
@@ -439,7 +446,51 @@ ValorZeta Interpreter::evaluar_binaria(const NodoAST& nodo) {
     auto der = evaluar(*nodo.hijos[1]);
     auto op = nodo.valor_texto;
 
-    // Coercion: bool → num → str
+    // ── Fast path: NUM ⊕ NUM (most common case) ──────────────────
+    // Uses inline double values — no allocation beyond the result.
+    if (izq && der && izq->tipo == ValorImpl::NUM && der->tipo == ValorImpl::NUM) {
+        double a = izq->num_val;
+        double b = der->num_val;
+        bool a_null = es_null(a);
+        bool b_null = es_null(b);
+
+        if (op == "+") {
+            if (a_null || b_null) return mk_null_val();
+            return mk_num(a + b);
+        }
+        if (op == "-") {
+            if (a_null || b_null) return mk_null_val();
+            return mk_num(a - b);
+        }
+        if (op == "*") {
+            if (a_null || b_null) return mk_null_val();
+            return mk_num(a * b);
+        }
+        if (op == "/") {
+            if (a_null || b_null || b == 0.0) return mk_null_val();
+            return mk_num(a / b);
+        }
+        if (op == "%") {
+            if (a_null || b_null || b == 0.0) return mk_null_val();
+            return mk_num(std::fmod(a, b));
+        }
+        if (op == "==") return mk_bool(a == b);
+        if (op == "!=") return mk_bool(a != b);
+        if (op == ">")  return mk_bool(a > b);
+        if (op == "<")  return mk_bool(a < b);
+        if (op == ">=") return mk_bool(a >= b);
+        if (op == "<=") return mk_bool(a <= b);
+    }
+
+    // ── Fast path: BOOL ⊕ BOOL ───────────────────────────────────
+    if (izq && der && izq->tipo == ValorImpl::BOOL && der->tipo == ValorImpl::BOOL) {
+        bool a = izq->bool_val;
+        bool b = der->bool_val;
+        if (op == "==") return mk_bool(a == b);
+        if (op == "!=") return mk_bool(a != b);
+    }
+
+    // ── Coercion: bool → num → str ────────────────────────────────
     if (izq && der && izq->tipo != der->tipo) {
         if (izq->tipo == ValorImpl::BOOL && der->tipo == ValorImpl::NUM) {
             izq = mk_num(izq->bool_val ? 1.0 : 0.0);
@@ -487,7 +538,7 @@ ValorZeta Interpreter::evaluar_binaria(const NodoAST& nodo) {
         if (izq->tipo == ValorImpl::VEC && der->tipo == ValorImpl::VEC) {
             std::vector<double> combined = izq->vec_val;
             combined.insert(combined.end(), der->vec_val.begin(), der->vec_val.end());
-            return mk_vec(combined);
+            return mk_vec(std::move(combined));
         }
     }
 
@@ -755,7 +806,7 @@ ValorZeta Interpreter::evaluar_vector(const NodoAST& nodo) {
                 else if (e->tipo == ValorImpl::STR) strs.push_back(e->str_val);
                 else strs.push_back(valor_a_string(e));
             }
-            return mk_str_vec(strs);
+            return mk_str_vec(std::move(strs));
         }
         if (has_bool && !has_num) {
             std::vector<bool> bools;
@@ -764,7 +815,7 @@ ValorZeta Interpreter::evaluar_vector(const NodoAST& nodo) {
                 else if (e->tipo == ValorImpl::BOOL) bools.push_back(e->bool_val);
                 else bools.push_back(false);
             }
-            return mk_bool_vec(bools);
+            return mk_bool_vec(std::move(bools));
         }
         if (has_obj && !has_num && !has_str && !has_bool) {
             // All objects: return as dict with index keys (no OBJ_VEC type exists)
@@ -772,7 +823,7 @@ ValorZeta Interpreter::evaluar_vector(const NodoAST& nodo) {
             for (size_t i = 0; i < elems.size(); ++i) {
                 dict[std::to_string(i)] = elems[i];
             }
-            return mk_dict(dict);
+            return mk_dict(std::move(dict));
         }
         // Default: numeric (includes null-only and bool+null cases)
         std::vector<double> nums;
@@ -782,7 +833,7 @@ ValorZeta Interpreter::evaluar_vector(const NodoAST& nodo) {
             else if (e->tipo == ValorImpl::BOOL) nums.push_back(e->bool_val ? 1.0 : 0.0);
             else nums.push_back(crear_null());
         }
-        return mk_vec(nums);
+        return mk_vec(std::move(nums));
     }
 
     // Mixed types → dict with index keys (preserves types)
@@ -790,7 +841,7 @@ ValorZeta Interpreter::evaluar_vector(const NodoAST& nodo) {
     for (size_t i = 0; i < elems.size(); ++i) {
         dict[std::to_string(i)] = elems[i];
     }
-    return mk_dict(dict);
+    return mk_dict(std::move(dict));
 }
 
 ValorZeta Interpreter::evaluar_matriz(const NodoAST& nodo) {
@@ -1150,7 +1201,7 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         if (args.empty() || args[0]->tipo != ValorImpl::VEC) return mk_err("runtime", "reverse requiere un vector", 0);
         std::vector<double> v = args[0]->vec_val;
         std::reverse(v.begin(), v.end());
-        return mk_vec(v);
+        return mk_vec(std::move(v));
     }
 
     if (nombre == "sort") {
@@ -1158,12 +1209,12 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         if (args[0]->tipo == ValorImpl::VEC) {
             std::vector<double> v = args[0]->vec_val;
             std::sort(v.begin(), v.end());
-            return mk_vec(v);
+            return mk_vec(std::move(v));
         }
         if (args[0]->tipo == ValorImpl::STR_VEC) {
             std::vector<std::string> v = args[0]->str_vec_val;
             std::sort(v.begin(), v.end());
-            return mk_str_vec(v);
+            return mk_str_vec(std::move(v));
         }
         return mk_err("runtime", "sort requiere un vector o str_vec", 0);
     }
@@ -1173,7 +1224,7 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         std::vector<double> v = args[0]->vec_val;
         std::sort(v.begin(), v.end());
         v.erase(std::unique(v.begin(), v.end()), v.end());
-        return mk_vec(v);
+        return mk_vec(std::move(v));
     }
 
     if (nombre == "push") {
@@ -1181,7 +1232,7 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
             return mk_err("runtime", "push requiere vector y valor", 0);
         std::vector<double> v = args[0]->vec_val;
         v.push_back(args[1]->num_val);
-        return mk_vec(v);
+        return mk_vec(std::move(v));
     }
 
     if (nombre == "keys") {
@@ -1189,8 +1240,7 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         std::vector<double> indices;
         std::vector<std::string> keys;
         for (const auto& [k, _] : args[0]->dict_val) keys.push_back(k);
-        ValorZeta result = mk_str_vec(keys);
-        return result;
+        return mk_str_vec(std::move(keys));
     }
 
     if (nombre == "values") {
@@ -1200,7 +1250,7 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
             if (v && v->tipo == ValorImpl::NUM) vals.push_back(v->num_val);
             else vals.push_back(crear_null());
         }
-        return mk_vec(vals);
+        return mk_vec(std::move(vals));
     }
 
     if (nombre == "type") {
@@ -1220,7 +1270,7 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         if (args.size() >= 3 && args[2]->tipo == ValorImpl::NUM) step = args[2]->num_val;
         std::vector<double> result;
         for (double i = start; i < end; i += step) result.push_back(i);
-        return mk_vec(result);
+        return mk_vec(std::move(result));
     }
 
     if (nombre == "transpose") {
@@ -1357,6 +1407,1175 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
             resultado.columnas[nombre] = std::move(nueva_col);
         }
         return mk_df(std::move(resultado));
+    }
+
+    if (nombre == "group_by") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::DF)
+            return mk_err("runtime", "group_by requiere DataFrame y columna(s)", 0);
+
+        const auto& df = args[0]->df_val;
+
+        std::vector<std::string> group_cols;
+        for (size_t i = 1; i < args.size(); ++i) {
+            if (args[i]->tipo != ValorImpl::STR)
+                return mk_err("runtime", "group_by: columnas deben ser strings", 0);
+            group_cols.push_back(args[i]->str_val);
+        }
+
+        std::map<std::string, std::vector<double>> groups;
+        for (size_t row = 0; row < df.filas(); ++row) {
+            std::string key;
+            for (const auto& gc : group_cols) {
+                auto it = df.columnas.find(gc);
+                if (it == df.columnas.end()) continue;
+                const auto& col = it->second;
+                if (col.tipo == "num") {
+                    if (col.null_bitmap[row]) key += "NULL|";
+                    else key += std::to_string(col.nums[row]) + "|";
+                } else if (col.tipo == "str") {
+                    key += col.strs[row] + "|";
+                } else if (col.tipo == "bool") {
+                    key += (col.bools[row] ? "true" : "false") + std::string("|");
+                }
+            }
+            groups[key].push_back(static_cast<double>(row));
+        }
+
+        std::map<std::string, ValorZeta> result;
+        result["_type"] = mk_str("grouped_df");
+        result["_data"] = args[0];
+        result["_group_cols"] = mk_str_vec(group_cols);
+
+        std::map<std::string, ValorZeta> groups_dict;
+        for (auto& [k, v] : groups) {
+            groups_dict[k] = mk_vec(v);
+        }
+        result["_groups"] = mk_dict(std::move(groups_dict));
+
+        return mk_dict(std::move(result));
+    }
+
+    if (nombre == "agg") {
+        if (args.size() < 3 || args[0]->tipo != ValorImpl::DICT)
+            return mk_err("runtime", "agg requiere grouped_df, columna, y funcion", 0);
+
+        auto it_type = args[0]->dict_val.find("_type");
+        if (it_type == args[0]->dict_val.end() || !it_type->second || it_type->second->str_val != "grouped_df")
+            return mk_err("runtime", "agg: primer argumento debe ser grouped_df (de group_by)", 0);
+
+        if (args[1]->tipo != ValorImpl::STR)
+            return mk_err("runtime", "agg: columna debe ser string", 0);
+        if (args[2]->tipo != ValorImpl::STR)
+            return mk_err("runtime", "agg: funcion debe ser string", 0);
+
+        const std::string& col_name = args[1]->str_val;
+        const std::string& func_name = args[2]->str_val;
+
+        auto& dict = args[0]->dict_val;
+        const DataFrame& df = dict.at("_data")->df_val;
+        auto& groups = dict.at("_groups")->dict_val;
+        auto& group_cols = dict.at("_group_cols")->str_vec_val;
+
+        auto col_it = df.columnas.find(col_name);
+        if (col_it == df.columnas.end())
+            return mk_err("runtime", "agg: columna '" + col_name + "' no encontrada", 0);
+
+        DataFrame result;
+        for (const auto& gc : group_cols) {
+            result.nombres_columnas.push_back(gc);
+            result.columnas[gc] = Columna("str");
+        }
+        std::string agg_col_name = col_name + "_" + func_name;
+        result.nombres_columnas.push_back(agg_col_name);
+        result.columnas[agg_col_name] = Columna("num");
+
+        for (auto& [key, indices_val] : groups) {
+            std::vector<std::string> key_parts;
+            std::string part;
+            std::string k = key;
+            if (!k.empty() && k.back() == '|') k.pop_back();
+            std::istringstream iss(k);
+            while (std::getline(iss, part, '|')) {
+                key_parts.push_back(part);
+            }
+
+            for (size_t i = 0; i < group_cols.size(); ++i) {
+                if (i < key_parts.size()) {
+                    result.columnas[group_cols[i]].strs.push_back(key_parts[i]);
+                    result.columnas[group_cols[i]].null_bitmap.push_back(false);
+                } else {
+                    result.columnas[group_cols[i]].strs.push_back("");
+                    result.columnas[group_cols[i]].null_bitmap.push_back(true);
+                }
+            }
+
+            const auto& idx_vec = indices_val->vec_val;
+            std::vector<double> values;
+            for (double idx_d : idx_vec) {
+                size_t idx = static_cast<size_t>(idx_d);
+                if (col_it->second.tipo == "num" && idx < col_it->second.nums.size()) {
+                    double v = col_it->second.nums[idx];
+                    if (!col_it->second.null_bitmap[idx]) values.push_back(v);
+                }
+            }
+
+            double agg_val = crear_null();
+            if (!values.empty()) {
+                if (func_name == "sum") {
+                    agg_val = 0;
+                    for (double v : values) agg_val += v;
+                } else if (func_name == "mean") {
+                    double s = 0;
+                    for (double v : values) s += v;
+                    agg_val = s / values.size();
+                } else if (func_name == "count") {
+                    agg_val = static_cast<double>(values.size());
+                } else if (func_name == "min") {
+                    agg_val = values[0];
+                    for (double v : values) if (v < agg_val) agg_val = v;
+                } else if (func_name == "max") {
+                    agg_val = values[0];
+                    for (double v : values) if (v > agg_val) agg_val = v;
+                } else if (func_name == "stddev") {
+                    double s = 0;
+                    for (double v : values) s += v;
+                    double mean = s / values.size();
+                    double sq_sum = 0;
+                    for (double v : values) sq_sum += (v - mean) * (v - mean);
+                    agg_val = std::sqrt(sq_sum / values.size());
+                } else if (func_name == "median") {
+                    std::vector<double> sorted = values;
+                    std::sort(sorted.begin(), sorted.end());
+                    size_t n = sorted.size();
+                    if (n % 2 == 0) agg_val = (sorted[n/2 - 1] + sorted[n/2]) / 2.0;
+                    else agg_val = sorted[n/2];
+                }
+            }
+
+            result.columnas[agg_col_name].nums.push_back(agg_val);
+            result.columnas[agg_col_name].null_bitmap.push_back(es_null(agg_val));
+        }
+
+        return mk_df(std::move(result));
+    }
+
+    if (nombre == "merge") {
+        if (args.size() < 3 || args[0]->tipo != ValorImpl::DF || args[1]->tipo != ValorImpl::DF)
+            return mk_err("runtime", "merge requiere dos DataFrames y una columna", 0);
+        if (args[2]->tipo != ValorImpl::STR)
+            return mk_err("runtime", "merge: columna debe ser string", 0);
+
+        const DataFrame& left = args[0]->df_val;
+        const DataFrame& right = args[1]->df_val;
+        const std::string& key_col = args[2]->str_val;
+
+        auto left_it = left.columnas.find(key_col);
+        auto right_it = right.columnas.find(key_col);
+        if (left_it == left.columnas.end())
+            return mk_err("runtime", "merge: columna '" + key_col + "' no encontrada en primer DataFrame", 0);
+        if (right_it == right.columnas.end())
+            return mk_err("runtime", "merge: columna '" + key_col + "' no encontrada en segundo DataFrame", 0);
+
+        std::map<std::string, std::vector<size_t>> right_index;
+        for (size_t i = 0; i < right.filas(); ++i) {
+            std::string k;
+            if (right_it->second.tipo == "num") {
+                if (!right_it->second.null_bitmap[i]) k = std::to_string(right_it->second.nums[i]);
+            } else if (right_it->second.tipo == "str") {
+                k = right_it->second.strs[i];
+            } else if (right_it->second.tipo == "bool") {
+                k = right_it->second.bools[i] ? "true" : "false";
+            }
+            right_index[k].push_back(i);
+        }
+
+        DataFrame result;
+        for (const auto& col_name : left.nombres_columnas) {
+            result.nombres_columnas.push_back(col_name);
+            result.columnas[col_name] = Columna(left.columnas.at(col_name).tipo);
+        }
+        for (const auto& col_name : right.nombres_columnas) {
+            if (col_name != key_col) {
+                result.nombres_columnas.push_back(col_name);
+                result.columnas[col_name] = Columna(right.columnas.at(col_name).tipo);
+            }
+        }
+
+        for (size_t i = 0; i < left.filas(); ++i) {
+            std::string k;
+            if (left_it->second.tipo == "num") {
+                if (!left_it->second.null_bitmap[i]) k = std::to_string(left_it->second.nums[i]);
+                else continue;
+            } else if (left_it->second.tipo == "str") {
+                k = left_it->second.strs[i];
+            } else if (left_it->second.tipo == "bool") {
+                k = left_it->second.bools[i] ? "true" : "false";
+            }
+
+            auto match_it = right_index.find(k);
+            if (match_it != right_index.end()) {
+                for (size_t j : match_it->second) {
+                    for (const auto& col_name : left.nombres_columnas) {
+                        const auto& col = left.columnas.at(col_name);
+                        if (col.tipo == "num") {
+                            result.columnas[col_name].nums.push_back(col.nums[i]);
+                            result.columnas[col_name].null_bitmap.push_back(col.null_bitmap[i]);
+                        } else if (col.tipo == "str") {
+                            result.columnas[col_name].strs.push_back(col.strs[i]);
+                            result.columnas[col_name].null_bitmap.push_back(col.null_bitmap[i]);
+                        } else if (col.tipo == "bool") {
+                            result.columnas[col_name].bools.push_back(col.bools[i]);
+                            result.columnas[col_name].null_bitmap.push_back(col.null_bitmap[i]);
+                        }
+                    }
+                    for (const auto& col_name : right.nombres_columnas) {
+                        if (col_name == key_col) continue;
+                        const auto& col = right.columnas.at(col_name);
+                        if (col.tipo == "num") {
+                            result.columnas[col_name].nums.push_back(col.nums[j]);
+                            result.columnas[col_name].null_bitmap.push_back(col.null_bitmap[j]);
+                        } else if (col.tipo == "str") {
+                            result.columnas[col_name].strs.push_back(col.strs[j]);
+                            result.columnas[col_name].null_bitmap.push_back(col.null_bitmap[j]);
+                        } else if (col.tipo == "bool") {
+                            result.columnas[col_name].bools.push_back(col.bools[j]);
+                            result.columnas[col_name].null_bitmap.push_back(col.null_bitmap[j]);
+                        }
+                    }
+                }
+            }
+        }
+
+        return mk_df(std::move(result));
+    }
+
+    // ============================================================
+    // EXPLORACIÓN DE DATOS
+    // ============================================================
+
+    if (nombre == "info") {
+        if (args.empty() || args[0]->tipo != ValorImpl::DF)
+            return mk_err("runtime", "info requiere un DataFrame", 0);
+        
+        const auto& df = args[0]->df_val;
+        size_t filas = df.filas();
+        size_t cols = df.columnas_count();
+        
+        std::ostringstream ss;
+        ss << "DataFrame: " << filas << " filas x " << cols << " columnas\n\n";
+        ss << std::left << std::setw(14) << "Columna" 
+           << std::setw(8) << "Tipo" 
+           << std::setw(10) << "No-Null" 
+           << std::setw(8) << "Null" 
+           << "%Null\n";
+        ss << std::string(50, '-') << "\n";
+        
+        size_t total_nums = 0, total_strs = 0, total_bools = 0;
+        
+        for (const auto& col_name : df.nombres_columnas) {
+            auto it = df.columnas.find(col_name);
+            if (it == df.columnas.end()) continue;
+            const auto& col = it->second;
+            
+            size_t total = col.size();
+            size_t null_count = 0;
+            for (bool b : col.null_bitmap) if (b) null_count++;
+            size_t non_null = total - null_count;
+            
+            double pct = total > 0 ? (null_count * 100.0 / total) : 0;
+            
+            ss << std::left << std::setw(14) << col_name
+               << std::setw(8) << col.tipo
+               << std::setw(10) << non_null
+               << std::setw(8) << null_count;
+            ss << std::fixed << std::setprecision(1) << pct << "%\n";
+            
+            if (col.tipo == "num") total_nums++;
+            else if (col.tipo == "str") total_strs++;
+            else if (col.tipo == "bool") total_bools++;
+        }
+        
+        ss << "\nTipos: num(" << total_nums << "), str(" << total_strs 
+           << "), bool(" << total_bools << ")\n";
+        
+        return mk_str(ss.str());
+    }
+
+    if (nombre == "describe") {
+        if (args.empty() || args[0]->tipo != ValorImpl::DF)
+            return mk_err("runtime", "describe requiere un DataFrame", 0);
+        
+        const auto& df = args[0]->df_val;
+        std::vector<std::string> num_cols;
+        
+        for (const auto& col_name : df.nombres_columnas) {
+            auto it = df.columnas.find(col_name);
+            if (it != df.columnas.end() && it->second.tipo == "num")
+                num_cols.push_back(col_name);
+        }
+        
+        if (num_cols.empty())
+            return mk_str("No hay columnas numericas\n");
+        
+        std::ostringstream ss;
+        ss << "Estadisticas: " << num_cols.size() << " columnas numericas\n\n";
+        
+        std::map<std::string, std::vector<double>> stats;
+        
+        for (const auto& col_name : num_cols) {
+            const auto& col = df.columnas.at(col_name);
+            std::vector<double> clean;
+            for (size_t i = 0; i < col.nums.size(); ++i)
+                if (!col.null_bitmap[i]) clean.push_back(col.nums[i]);
+            
+            double count_val = static_cast<double>(clean.size());
+            double mean_val = fn_mean(clean);
+            double stddev_val = fn_stddev(clean);
+            double min_val = clean.empty() ? crear_null() : clean.front();
+            double max_val = clean.empty() ? crear_null() : clean.back();
+            double p25 = fn_percentile(clean, 25);
+            double p50 = fn_percentile(clean, 50);
+            double p75 = fn_percentile(clean, 75);
+            
+            stats[col_name] = {count_val, mean_val, stddev_val, min_val, p25, p50, p75, max_val};
+        }
+        
+        std::vector<std::string> labels = {"count", "mean", "std", "min", "25%", "50%", "75%", "max"};
+        
+        ss << std::right << std::setw(8) << "";
+        for (const auto& col : num_cols) ss << std::setw(12) << col;
+        ss << "\n" << std::string(8 + 12*num_cols.size(), '-') << "\n";
+        
+        for (size_t row = 0; row < labels.size(); ++row) {
+            ss << std::right << std::setw(8) << labels[row];
+            for (const auto& col : num_cols) {
+                if (es_null(stats[col][row])) ss << std::setw(12) << "null";
+                else ss << std::setw(12) << std::fixed << std::setprecision(1) << stats[col][row];
+            }
+            ss << "\n";
+        }
+        
+        return mk_str(ss.str());
+    }
+
+    if (nombre == "tail") {
+        if (args.empty()) return mk_err("runtime", "tail requiere un DataFrame o vector", 0);
+        int n = 5;
+        if (args.size() >= 2 && args[1]->tipo == ValorImpl::NUM) n = static_cast<int>(args[1]->num_val);
+        
+        if (args[0]->tipo == ValorImpl::DF) {
+            const auto& df = args[0]->df_val;
+            int total = static_cast<int>(df.filas());
+            int start = std::max(0, total - n);
+            
+            DataFrame result;
+            result.nombres_columnas = df.nombres_columnas;
+            for (const auto& [col_name, col] : df.columnas) {
+                Columna sliced(col.tipo);
+                for (int i = start; i < total; ++i) {
+                    if (col.tipo == "num") {
+                        sliced.nums.push_back(col.nums[i]);
+                        sliced.null_bitmap.push_back(col.null_bitmap[i]);
+                    } else if (col.tipo == "str") {
+                        sliced.strs.push_back(col.strs[i]);
+                        sliced.null_bitmap.push_back(col.null_bitmap[i]);
+                    } else if (col.tipo == "bool") {
+                        sliced.bools.push_back(col.bools[i]);
+                        sliced.null_bitmap.push_back(col.null_bitmap[i]);
+                    }
+                }
+                result.columnas[col_name] = std::move(sliced);
+            }
+            return mk_df(result);
+        }
+        if (args[0]->tipo == ValorImpl::VEC) {
+            const auto& v = args[0]->vec_val;
+            int start = std::max(0, static_cast<int>(v.size()) - n);
+            std::vector<double> sliced(v.begin() + start, v.end());
+            return mk_vec(sliced);
+        }
+        if (args[0]->tipo == ValorImpl::STR_VEC) {
+            const auto& v = args[0]->str_vec_val;
+            int start = std::max(0, static_cast<int>(v.size()) - n);
+            std::vector<std::string> sliced(v.begin() + start, v.end());
+            return mk_str_vec(sliced);
+        }
+        return mk_err("runtime", "tail requiere DataFrame o vector", 0);
+    }
+
+    if (nombre == "sample") {
+        if (args.empty() || args[0]->tipo != ValorImpl::DF)
+            return mk_err("runtime", "sample requiere un DataFrame", 0);
+        int n = 5;
+        if (args.size() >= 2 && args[1]->tipo == ValorImpl::NUM) n = static_cast<int>(args[1]->num_val);
+        
+        const auto& df = args[0]->df_val;
+        int total = static_cast<int>(df.filas());
+        n = std::min(n, total);
+        
+        std::vector<int> indices(total);
+        std::iota(indices.begin(), indices.end(), 0);
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::shuffle(indices.begin(), indices.end(), gen);
+        indices.resize(n);
+        std::sort(indices.begin(), indices.end());
+        
+        DataFrame result;
+        result.nombres_columnas = df.nombres_columnas;
+        for (const auto& [col_name, col] : df.columnas) {
+            Columna sliced(col.tipo);
+            for (int i : indices) {
+                if (col.tipo == "num") {
+                    sliced.nums.push_back(col.nums[i]);
+                    sliced.null_bitmap.push_back(col.null_bitmap[i]);
+                } else if (col.tipo == "str") {
+                    sliced.strs.push_back(col.strs[i]);
+                    sliced.null_bitmap.push_back(col.null_bitmap[i]);
+                } else if (col.tipo == "bool") {
+                    sliced.bools.push_back(col.bools[i]);
+                    sliced.null_bitmap.push_back(col.null_bitmap[i]);
+                }
+            }
+            result.columnas[col_name] = std::move(sliced);
+        }
+        return mk_df(result);
+    }
+
+    if (nombre == "value_counts") {
+        if (args.empty()) return mk_err("runtime", "value_counts requiere un vector", 0);
+        
+        if (args[0]->tipo == ValorImpl::VEC) {
+            std::map<double, size_t> freq;
+            for (double v : args[0]->vec_val) if (!es_null(v)) freq[v]++;
+            std::vector<std::pair<double, size_t>> sorted(freq.begin(), freq.end());
+            std::sort(sorted.begin(), sorted.end(),
+                [](const std::pair<double, size_t>& a, const std::pair<double, size_t>& b) { return a.second > b.second; });
+            
+            DataFrame result;
+            result.nombres_columnas = {"valor", "count"};
+            result.columnas["valor"] = Columna("num");
+            result.columnas["count"] = Columna("num");
+            for (auto& [v, c] : sorted) {
+                result.columnas["valor"].nums.push_back(v);
+                result.columnas["valor"].null_bitmap.push_back(false);
+                result.columnas["count"].nums.push_back(static_cast<double>(c));
+                result.columnas["count"].null_bitmap.push_back(false);
+            }
+            return mk_df(result);
+        }
+        if (args[0]->tipo == ValorImpl::STR_VEC) {
+            std::map<std::string, size_t> freq;
+            for (const auto& s : args[0]->str_vec_val) freq[s]++;
+            std::vector<std::pair<std::string, size_t>> sorted(freq.begin(), freq.end());
+            std::sort(sorted.begin(), sorted.end(),
+                [](const std::pair<std::string, size_t>& a, const std::pair<std::string, size_t>& b) { return a.second > b.second; });
+            
+            DataFrame result;
+            result.nombres_columnas = {"valor", "count"};
+            result.columnas["valor"] = Columna("str");
+            result.columnas["count"] = Columna("num");
+            for (auto& [v, c] : sorted) {
+                result.columnas["valor"].strs.push_back(v);
+                result.columnas["valor"].null_bitmap.push_back(false);
+                result.columnas["count"].nums.push_back(static_cast<double>(c));
+                result.columnas["count"].null_bitmap.push_back(false);
+            }
+            return mk_df(result);
+        }
+        return mk_err("runtime", "value_counts requiere vector o str_vec", 0);
+    }
+
+    if (nombre == "nunique") {
+        if (args.empty()) return mk_err("runtime", "nunique requiere un vector", 0);
+        
+        if (args[0]->tipo == ValorImpl::VEC) {
+            std::set<double> unique;
+            for (double v : args[0]->vec_val) if (!es_null(v)) unique.insert(v);
+            return mk_num(static_cast<double>(unique.size()));
+        }
+        if (args[0]->tipo == ValorImpl::STR_VEC) {
+            std::set<std::string> unique(args[0]->str_vec_val.begin(), args[0]->str_vec_val.end());
+            return mk_num(static_cast<double>(unique.size()));
+        }
+        return mk_err("runtime", "nunique requiere vector o str_vec", 0);
+    }
+
+    if (nombre == "median") {
+        if (args.empty() || args[0]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "median requiere un vector", 0);
+        return mk_num(fn_median(args[0]->vec_val));
+    }
+
+    if (nombre == "percentile") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::NUM)
+            return mk_err("runtime", "percentile requiere vector y numero (0-100)", 0);
+        return mk_num(fn_percentile(args[0]->vec_val, args[1]->num_val));
+    }
+
+    if (nombre == "mode") {
+        if (args.empty() || args[0]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "mode requiere un vector", 0);
+        return mk_num(fn_mode(args[0]->vec_val));
+    }
+
+    if (nombre == "cor") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "cor requiere dos vectores", 0);
+        return mk_num(fn_cor(args[0]->vec_val, args[1]->vec_val));
+    }
+
+    if (nombre == "cov") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "cov requiere dos vectores", 0);
+        return mk_num(fn_cov(args[0]->vec_val, args[1]->vec_val));
+    }
+
+    if (nombre == "isna") {
+        if (args.empty()) return mk_err("runtime", "isna requiere un DataFrame o vector", 0);
+        
+        if (args[0]->tipo == ValorImpl::DF) {
+            const auto& df = args[0]->df_val;
+            DataFrame result;
+            result.nombres_columnas = df.nombres_columnas;
+            for (const auto& [col_name, col] : df.columnas) {
+                Columna bool_col("bool");
+                for (size_t i = 0; i < col.null_bitmap.size(); ++i) {
+                    bool_col.bools.push_back(col.null_bitmap[i]);
+                    bool_col.null_bitmap.push_back(false);
+                }
+                result.columnas[col_name] = std::move(bool_col);
+            }
+            return mk_df(result);
+        }
+        if (args[0]->tipo == ValorImpl::VEC) {
+            std::vector<bool> flags;
+            for (double v : args[0]->vec_val) flags.push_back(es_null(v));
+            return mk_bool_vec(flags);
+        }
+        return mk_err("runtime", "isna requiere DataFrame o vector", 0);
+    }
+
+    if (nombre == "duplicated") {
+        if (args.empty()) return mk_err("runtime", "duplicated requiere un vector", 0);
+        
+        if (args[0]->tipo == ValorImpl::VEC) {
+            std::set<double> seen;
+            std::vector<bool> result;
+            for (double v : args[0]->vec_val) {
+                if (es_null(v)) { result.push_back(false); continue; }
+                bool dup = seen.count(v) > 0;
+                seen.insert(v);
+                result.push_back(dup);
+            }
+            return mk_bool_vec(result);
+        }
+        if (args[0]->tipo == ValorImpl::STR_VEC) {
+            std::set<std::string> seen;
+            std::vector<bool> result;
+            for (const auto& s : args[0]->str_vec_val) {
+                bool dup = seen.count(s) > 0;
+                seen.insert(s);
+                result.push_back(dup);
+            }
+            return mk_bool_vec(result);
+        }
+        return mk_err("runtime", "duplicated requiere vector o str_vec", 0);
+    }
+
+    if (nombre == "cut") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::NUM)
+            return mk_err("runtime", "cut requiere vector y numero de bins", 0);
+        
+        const auto& vec = args[0]->vec_val;
+        int bins = static_cast<int>(args[1]->num_val);
+        if (bins <= 0) return mk_err("runtime", "cut: bins debe ser > 0", 0);
+        
+        double min_val = fn_min(vec);
+        double max_val = fn_max(vec);
+        if (es_null(min_val) || es_null(max_val))
+            return mk_err("runtime", "cut: vector vacio o todo null", 0);
+        
+        double range = max_val - min_val;
+        if (range == 0) range = 1.0;
+        double step = range / bins;
+        
+        std::vector<double> result;
+        for (double v : vec) {
+            if (es_null(v)) { result.push_back(crear_null()); continue; }
+            int bin = static_cast<int>((v - min_val) / step);
+            if (bin >= bins) bin = bins - 1;
+            result.push_back(static_cast<double>(bin + 1));
+        }
+        return mk_vec(result);
+    }
+
+    if (nombre == "qcut") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::NUM)
+            return mk_err("runtime", "qcut requiere vector y numero de cuantiles", 0);
+        
+        const auto& vec = args[0]->vec_val;
+        int q = static_cast<int>(args[1]->num_val);
+        if (q <= 0) return mk_err("runtime", "qcut: q debe ser > 0", 0);
+        
+        std::vector<double> clean;
+        for (double v : vec) if (!es_null(v)) clean.push_back(v);
+        if (clean.empty()) return mk_err("runtime", "qcut: vector vacio", 0);
+        
+        std::sort(clean.begin(), clean.end());
+        
+        std::vector<double> cuts;
+        for (int i = 1; i < q; ++i) {
+            double pos = (static_cast<double>(i) / q) * (clean.size() - 1);
+            size_t lo = static_cast<size_t>(pos);
+            size_t hi = lo + 1;
+            if (hi >= clean.size()) cuts.push_back(clean.back());
+            else {
+                double frac = pos - lo;
+                cuts.push_back(clean[lo] + frac * (clean[hi] - clean[lo]));
+            }
+        }
+        
+        std::vector<double> result;
+        for (double v : vec) {
+            if (es_null(v)) { result.push_back(crear_null()); continue; }
+            int bin = 0;
+            for (double c : cuts) {
+                if (v > c) bin++;
+                else break;
+            }
+            result.push_back(static_cast<double>(bin + 1));
+        }
+        return mk_vec(result);
+    }
+
+    // ============================================================
+    // DISTRIBUCIONES Y TESTING ESTADÍSTICO
+    // ============================================================
+
+    if (nombre == "dnorm") {
+        if (args.empty()) return mk_err("runtime", "dnorm requiere al menos un argumento", 0);
+        double x = args[0]->num_val;
+        double mean = (args.size() >= 2) ? args[1]->num_val : 0.0;
+        double sd = (args.size() >= 3) ? args[2]->num_val : 1.0;
+        return mk_num(dnorm(x, mean, sd));
+    }
+
+    if (nombre == "pnorm") {
+        if (args.empty()) return mk_err("runtime", "pnorm requiere al menos un argumento", 0);
+        double x = args[0]->num_val;
+        double mean = (args.size() >= 2) ? args[1]->num_val : 0.0;
+        double sd = (args.size() >= 3) ? args[2]->num_val : 1.0;
+        return mk_num(pnorm(x, mean, sd));
+    }
+
+    if (nombre == "qnorm") {
+        if (args.empty()) return mk_err("runtime", "qnorm requiere al menos un argumento", 0);
+        double p = args[0]->num_val;
+        double mean = (args.size() >= 2) ? args[1]->num_val : 0.0;
+        double sd = (args.size() >= 3) ? args[2]->num_val : 1.0;
+        return mk_num(qnorm(p, mean, sd));
+    }
+
+    if (nombre == "dgamma") {
+        if (args.size() < 3) return mk_err("runtime", "dgamma requiere x, shape, rate", 0);
+        return mk_num(dgamma(args[0]->num_val, args[1]->num_val, args[2]->num_val));
+    }
+
+    if (nombre == "dbeta") {
+        if (args.size() < 3) return mk_err("runtime", "dbeta requiere x, alpha, beta", 0);
+        return mk_num(dbeta(args[0]->num_val, args[1]->num_val, args[2]->num_val));
+    }
+
+    if (nombre == "dunif") {
+        if (args.empty()) return mk_err("runtime", "dunif requiere al menos un argumento", 0);
+        double x = args[0]->num_val;
+        double min_val = (args.size() >= 2) ? args[1]->num_val : 0.0;
+        double max_val = (args.size() >= 3) ? args[2]->num_val : 1.0;
+        return mk_num(dunif(x, min_val, max_val));
+    }
+
+    if (nombre == "dt_dist") {
+        if (args.size() < 2) return mk_err("runtime", "dt_dist requiere x y df", 0);
+        return mk_num(dt_dist(args[0]->num_val, args[1]->num_val));
+    }
+
+    if (nombre == "df_dist") {
+        if (args.size() < 3) return mk_err("runtime", "df_dist requiere x, df1, df2", 0);
+        return mk_num(df_dist(args[0]->num_val, args[1]->num_val, args[2]->num_val));
+    }
+
+    if (nombre == "dchisq") {
+        if (args.size() < 2) return mk_err("runtime", "dchisq requiere x y df", 0);
+        return mk_num(dchisq(args[0]->num_val, args[1]->num_val));
+    }
+
+    if (nombre == "t_test") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "t_test requiere dos vectores", 0);
+        double t_stat = t_test_statistic(args[0]->vec_val, args[1]->vec_val);
+        double df = args[0]->vec_val.size() + args[1]->vec_val.size() - 2;
+        double p_val = t_test_pvalue(t_stat, df);
+        
+        std::map<std::string, ValorZeta> result;
+        result["t_statistic"] = mk_num(t_stat);
+        result["df"] = mk_num(df);
+        result["p_value"] = mk_num(p_val);
+        result["significant"] = mk_num(p_val < 0.05 ? 1.0 : 0.0);
+        return mk_dict(std::move(result));
+    }
+
+    if (nombre == "anova") {
+        if (args.empty() || args[0]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "anova requiere vector de vectores", 0);
+        
+        // Expect vector of vectors (from group_by)
+        std::vector<std::vector<double>> groups;
+        for (const auto& v : args[0]->vec_val) {
+            // Each element should be a vector
+            // For simplicity, treat input as flat and split by groups
+        }
+        
+        // Alternative: accept multiple vectors as arguments
+        for (size_t i = 0; i < args.size(); ++i) {
+            if (args[i]->tipo == ValorImpl::VEC) {
+                groups.push_back(args[i]->vec_val);
+            }
+        }
+        
+        if (groups.size() < 2)
+            return mk_err("runtime", "anova requiere al menos 2 grupos", 0);
+        
+        double f_stat = anova_f_statistic(groups);
+        
+        std::map<std::string, ValorZeta> result;
+        result["f_statistic"] = mk_num(f_stat);
+        result["groups"] = mk_num(static_cast<double>(groups.size()));
+        return mk_dict(std::move(result));
+    }
+
+    if (nombre == "chi_square") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "chi_square requiere dos vectores (observed, expected)", 0);
+        double chi2 = chi_square_statistic(args[0]->vec_val, args[1]->vec_val);
+        double df = static_cast<double>(args[0]->vec_val.size() - 1);
+        
+        std::map<std::string, ValorZeta> result;
+        result["chi_square"] = mk_num(chi2);
+        result["df"] = mk_num(df);
+        return mk_dict(std::move(result));
+    }
+
+    if (nombre == "linear_regression") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "linear_regression requiere dos vectores (x, y)", 0);
+        
+        RegressionResult reg = linear_regression(args[0]->vec_val, args[1]->vec_val);
+        
+        std::map<std::string, ValorZeta> result;
+        result["slope"] = mk_num(reg.slope);
+        result["intercept"] = mk_num(reg.intercept);
+        result["r_squared"] = mk_num(reg.r_squared);
+        result["std_error"] = mk_num(reg.std_error);
+        result["predicted"] = mk_vec(reg.predicted);
+        
+        // Formula string
+        std::ostringstream ss;
+        ss << "y = " << reg.slope << " * x + " << reg.intercept;
+        result["formula"] = mk_str(ss.str());
+        
+        return mk_dict(std::move(result));
+    }
+
+    // ============================================================
+    // WINDOW FUNCTIONS
+    // ============================================================
+
+    if (nombre == "cumsum") {
+        if (args.empty() || args[0]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "cumsum requiere un vector", 0);
+        return mk_vec(fn_cumsum(args[0]->vec_val));
+    }
+
+    if (nombre == "cummax") {
+        if (args.empty() || args[0]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "cummax requiere un vector", 0);
+        return mk_vec(fn_cummax(args[0]->vec_val));
+    }
+
+    if (nombre == "cummin") {
+        if (args.empty() || args[0]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "cummin requiere un vector", 0);
+        return mk_vec(fn_cummin(args[0]->vec_val));
+    }
+
+    if (nombre == "rolling_mean") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::NUM)
+            return mk_err("runtime", "rolling_mean requiere vector y ventana", 0);
+        size_t window = static_cast<size_t>(args[1]->num_val);
+        return mk_vec(fn_rolling_mean(args[0]->vec_val, window));
+    }
+
+    if (nombre == "rolling_std") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::NUM)
+            return mk_err("runtime", "rolling_std requiere vector y ventana", 0);
+        size_t window = static_cast<size_t>(args[1]->num_val);
+        return mk_vec(fn_rolling_std(args[0]->vec_val, window));
+    }
+
+    if (nombre == "rolling_sum") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::NUM)
+            return mk_err("runtime", "rolling_sum requiere vector y ventana", 0);
+        size_t window = static_cast<size_t>(args[1]->num_val);
+        return mk_vec(fn_rolling_sum(args[0]->vec_val, window));
+    }
+
+    if (nombre == "rolling_min") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::NUM)
+            return mk_err("runtime", "rolling_min requiere vector y ventana", 0);
+        size_t window = static_cast<size_t>(args[1]->num_val);
+        return mk_vec(fn_rolling_min(args[0]->vec_val, window));
+    }
+
+    if (nombre == "rolling_max") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::NUM)
+            return mk_err("runtime", "rolling_max requiere vector y ventana", 0);
+        size_t window = static_cast<size_t>(args[1]->num_val);
+        return mk_vec(fn_rolling_max(args[0]->vec_val, window));
+    }
+
+    if (nombre == "lag") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::NUM)
+            return mk_err("runtime", "lag requiere vector y n", 0);
+        size_t n = static_cast<size_t>(args[1]->num_val);
+        return mk_vec(fn_lag(args[0]->vec_val, n));
+    }
+
+    if (nombre == "lead") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::NUM)
+            return mk_err("runtime", "lead requiere vector y n", 0);
+        size_t n = static_cast<size_t>(args[1]->num_val);
+        return mk_vec(fn_lead(args[0]->vec_val, n));
+    }
+
+    if (nombre == "diff") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::NUM)
+            return mk_err("runtime", "diff requiere vector y n", 0);
+        size_t n = static_cast<size_t>(args[1]->num_val);
+        return mk_vec(fn_diff(args[0]->vec_val, n));
+    }
+
+    if (nombre == "row_number") {
+        if (args.empty() || args[0]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "row_number requiere un vector", 0);
+        return mk_vec(fn_row_number(args[0]->vec_val));
+    }
+
+    if (nombre == "rank") {
+        if (args.empty() || args[0]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "rank requiere un vector", 0);
+        return mk_vec(fn_rank(args[0]->vec_val));
+    }
+
+    if (nombre == "pct_change") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::NUM)
+            return mk_err("runtime", "pct_change requiere vector y n", 0);
+        size_t n = static_cast<size_t>(args[1]->num_val);
+        return mk_vec(fn_pct_change(args[0]->vec_val, n));
+    }
+
+    // ============================================================
+    // DATA CLEANING
+    // ============================================================
+
+    if (nombre == "drop_duplicates") {
+        if (args.empty() || args[0]->tipo != ValorImpl::DF)
+            return mk_err("runtime", "drop_duplicates requiere un DataFrame", 0);
+        
+        const auto& df = args[0]->df_val;
+        DataFrame result;
+        result.nombres_columnas = df.nombres_columnas;
+        for (const auto& [col_name, col] : df.columnas) {
+            result.columnas[col_name] = Columna(col.tipo);
+        }
+        
+        // Track seen row signatures
+        std::set<std::string> seen;
+        
+        for (size_t row = 0; row < df.filas(); ++row) {
+            // Create row signature
+            std::string sig;
+            for (const auto& col_name : df.nombres_columnas) {
+                auto it = df.columnas.find(col_name);
+                if (it == df.columnas.end()) continue;
+                const auto& col = it->second;
+                if (col.null_bitmap[row]) { sig += "N|"; continue; }
+                if (col.tipo == "num") sig += std::to_string(col.nums[row]) + "|";
+                else if (col.tipo == "str") sig += col.strs[row] + "|";
+                else if (col.tipo == "bool") sig += (col.bools[row] ? "T" : "F") + std::string("|");
+            }
+            
+            if (seen.count(sig) == 0) {
+                seen.insert(sig);
+                for (const auto& col_name : df.nombres_columnas) {
+                    auto it = df.columnas.find(col_name);
+                    if (it == df.columnas.end()) continue;
+                    const auto& col = it->second;
+                    if (col.tipo == "num") {
+                        result.columnas[col_name].nums.push_back(col.nums[row]);
+                        result.columnas[col_name].null_bitmap.push_back(col.null_bitmap[row]);
+                    } else if (col.tipo == "str") {
+                        result.columnas[col_name].strs.push_back(col.strs[row]);
+                        result.columnas[col_name].null_bitmap.push_back(col.null_bitmap[row]);
+                    } else if (col.tipo == "bool") {
+                        result.columnas[col_name].bools.push_back(col.bools[row]);
+                        result.columnas[col_name].null_bitmap.push_back(col.null_bitmap[row]);
+                    }
+                }
+            }
+        }
+        
+        return mk_df(result);
+    }
+
+    if (nombre == "rename") {
+        if (args.size() < 3 || args[0]->tipo != ValorImpl::DF || 
+            args[1]->tipo != ValorImpl::STR || args[2]->tipo != ValorImpl::STR)
+            return mk_err("runtime", "rename requiere DataFrame, nombre viejo, nombre nuevo", 0);
+        
+        const auto& df = args[0]->df_val;
+        const std::string& old_name = args[1]->str_val;
+        const std::string& new_name = args[2]->str_val;
+        
+        auto it = df.columnas.find(old_name);
+        if (it == df.columnas.end())
+            return mk_err("runtime", "rename: columna '" + old_name + "' no encontrada", 0);
+        
+        DataFrame result;
+        for (const auto& col_name : df.nombres_columnas) {
+            if (col_name == old_name) {
+                result.nombres_columnas.push_back(new_name);
+                result.columnas[new_name] = it->second;
+            } else {
+                result.nombres_columnas.push_back(col_name);
+                result.columnas[col_name] = df.columnas.at(col_name);
+            }
+        }
+        
+        return mk_df(result);
+    }
+
+    if (nombre == "select_cols") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::DF || args[1]->tipo != ValorImpl::STR_VEC)
+            return mk_err("runtime", "select_cols requiere DataFrame y vector de columnas", 0);
+        
+        const auto& df = args[0]->df_val;
+        const auto& cols = args[1]->str_vec_val;
+        
+        DataFrame result;
+        for (const auto& col_name : cols) {
+            auto it = df.columnas.find(col_name);
+            if (it == df.columnas.end())
+                return mk_err("runtime", "select_cols: columna '" + col_name + "' no encontrada", 0);
+            result.nombres_columnas.push_back(col_name);
+            result.columnas[col_name] = it->second;
+        }
+        
+        return mk_df(result);
+    }
+
+    if (nombre == "drop_cols") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::DF || args[1]->tipo != ValorImpl::STR_VEC)
+            return mk_err("runtime", "drop_cols requiere DataFrame y vector de columnas", 0);
+        
+        const auto& df = args[0]->df_val;
+        const auto& cols_to_drop = args[1]->str_vec_val;
+        std::set<std::string> drop_set(cols_to_drop.begin(), cols_to_drop.end());
+        
+        DataFrame result;
+        for (const auto& col_name : df.nombres_columnas) {
+            if (drop_set.count(col_name) == 0) {
+                result.nombres_columnas.push_back(col_name);
+                result.columnas[col_name] = df.columnas.at(col_name);
+            }
+        }
+        
+        return mk_df(result);
+    }
+
+    if (nombre == "fillna") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "fillna requiere vector y estrategia", 0);
+        
+        const auto& vec = args[0]->vec_val;
+        std::string strategy = (args[1]->tipo == ValorImpl::STR) ? args[1]->str_val : "value";
+        
+        std::vector<double> result = vec;
+        
+        if (strategy == "mean") {
+            double mean_val = fn_mean(vec);
+            for (auto& v : result) if (es_null(v)) v = mean_val;
+        } else if (strategy == "median") {
+            double median_val = fn_median(vec);
+            for (auto& v : result) if (es_null(v)) v = median_val;
+        } else if (strategy == "mode") {
+            double mode_val = fn_mode(vec);
+            for (auto& v : result) if (es_null(v)) v = mode_val;
+        } else if (strategy == "ffill") {
+            double last_valid = crear_null();
+            for (size_t i = 0; i < result.size(); ++i) {
+                if (!es_null(result[i])) last_valid = result[i];
+                else if (!es_null(last_valid)) result[i] = last_valid;
+            }
+        } else if (strategy == "bfill") {
+            double next_valid = crear_null();
+            for (int i = static_cast<int>(result.size()) - 1; i >= 0; --i) {
+                if (!es_null(result[i])) next_valid = result[i];
+                else if (!es_null(next_valid)) result[i] = next_valid;
+            }
+        } else if (strategy == "zero") {
+            for (auto& v : result) if (es_null(v)) v = 0.0;
+        } else {
+            // Use as literal value
+            double fill_val = args[1]->num_val;
+            for (auto& v : result) if (es_null(v)) v = fill_val;
+        }
+        
+        return mk_vec(result);
+    }
+
+    if (nombre == "replace_val") {
+        if (args.size() < 3 || args[0]->tipo != ValorImpl::DF || 
+            args[1]->tipo != ValorImpl::STR || args[2]->tipo != ValorImpl::STR)
+            return mk_err("runtime", "replace_val requiere DataFrame, columna, old, new", 0);
+        
+        const auto& df = args[0]->df_val;
+        const std::string& col_name = args[1]->str_val;
+        
+        auto it = df.columnas.find(col_name);
+        if (it == df.columnas.end())
+            return mk_err("runtime", "replace_val: columna '" + col_name + "' no encontrada", 0);
+        
+        std::string old_val = (args.size() > 2 && args[2]->tipo == ValorImpl::STR) ? args[2]->str_val : "";
+        std::string new_val = (args.size() > 3 && args[3]->tipo == ValorImpl::STR) ? args[3]->str_val : "";
+        
+        DataFrame result;
+        result.nombres_columnas = df.nombres_columnas;
+        
+        for (const auto& cn : df.nombres_columnas) {
+            const auto& col = df.columnas.at(cn);
+            Columna new_col(col.tipo);
+            
+            if (cn == col_name && col.tipo == "str") {
+                for (size_t i = 0; i < col.size(); ++i) {
+                    if (!col.null_bitmap[i] && col.strs[i] == old_val) {
+                        new_col.strs.push_back(new_val);
+                    } else {
+                        new_col.strs.push_back(col.null_bitmap[i] ? "" : col.strs[i]);
+                    }
+                    new_col.null_bitmap.push_back(col.null_bitmap[i]);
+                }
+            } else {
+                if (col.tipo == "num") { new_col.nums = col.nums; }
+                else if (col.tipo == "str") { new_col.strs = col.strs; }
+                else if (col.tipo == "bool") { new_col.bools = col.bools; }
+                new_col.null_bitmap = col.null_bitmap;
+            }
+            
+            result.columnas[cn] = std::move(new_col);
+        }
+        
+        return mk_df(result);
+    }
+
+    if (nombre == "clip") {
+        if (args.size() < 3 || args[0]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "clip requiere vector, min y max", 0);
+        
+        const auto& vec = args[0]->vec_val;
+        double min_val = args[1]->num_val;
+        double max_val = args[2]->num_val;
+        
+        std::vector<double> result;
+        result.reserve(vec.size());
+        for (double v : vec) {
+            if (es_null(v)) { result.push_back(crear_null()); continue; }
+            if (v < min_val) result.push_back(min_val);
+            else if (v > max_val) result.push_back(max_val);
+            else result.push_back(v);
+        }
+        
+        return mk_vec(result);
+    }
+
+    if (nombre == "trim") {
+        if (args.size() < 2 || args[0]->tipo != ValorImpl::VEC || args[1]->tipo != ValorImpl::NUM)
+            return mk_err("runtime", "trim requiere vector y número de std devs", 0);
+        
+        const auto& vec = args[0]->vec_val;
+        double n_std = args[1]->num_val;
+        
+        double mean_val = fn_mean(vec);
+        double std_val = fn_stddev(vec);
+        
+        if (es_null(mean_val) || es_null(std_val) || std_val == 0)
+            return mk_vec(vec);
+        
+        double lower = mean_val - n_std * std_val;
+        double upper = mean_val + n_std * std_val;
+        
+        std::vector<double> result;
+        result.reserve(vec.size());
+        for (double v : vec) {
+            if (es_null(v)) { result.push_back(crear_null()); continue; }
+            if (v < lower || v > upper) result.push_back(crear_null());
+            else result.push_back(v);
+        }
+        
+        return mk_vec(result);
+    }
+
+    if (nombre == "normalize") {
+        if (args.empty() || args[0]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "normalize requiere un vector", 0);
+        
+        const auto& vec = args[0]->vec_val;
+        double min_val = fn_min(vec);
+        double max_val = fn_max(vec);
+        
+        if (es_null(min_val) || es_null(max_val) || max_val == min_val)
+            return mk_vec(vec);
+        
+        double range = max_val - min_val;
+        std::vector<double> result;
+        result.reserve(vec.size());
+        for (double v : vec) {
+            if (es_null(v)) { result.push_back(crear_null()); continue; }
+            result.push_back((v - min_val) / range);
+        }
+        
+        return mk_vec(result);
+    }
+
+    if (nombre == "standardize") {
+        if (args.empty() || args[0]->tipo != ValorImpl::VEC)
+            return mk_err("runtime", "standardize requiere un vector", 0);
+        
+        const auto& vec = args[0]->vec_val;
+        double mean_val = fn_mean(vec);
+        double std_val = fn_stddev(vec);
+        
+        if (es_null(mean_val) || es_null(std_val) || std_val == 0)
+            return mk_vec(vec);
+        
+        std::vector<double> result;
+        result.reserve(vec.size());
+        for (double v : vec) {
+            if (es_null(v)) { result.push_back(crear_null()); continue; }
+            result.push_back((v - mean_val) / std_val);
+        }
+        
+        return mk_vec(result);
     }
 
     if (nombre == "split") {
@@ -1980,6 +3199,99 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
         }
     }
 
+    if (nombre == "plugin") {
+        // plugin("lib.so") - Load plugin with v2 ABI support
+        // plugin("lib.so", ["func1", "func2"]) - Load and register specific functions
+        if (args.empty() || args[0]->tipo != ValorImpl::STR)
+            return mk_err("runtime", "plugin requiere ruta del plugin", 0);
+
+        std::string ruta = args[0]->str_val;
+        std::string ruta_abs = resolver_ruta(ruta);
+        if (ruta_abs == ruta && !fs::path(ruta).is_absolute()) {
+            if (fs::exists("./lib/" + ruta)) ruta_abs = "./lib/" + ruta;
+            else {
+                for (const auto& ip : include_paths_) {
+                    fs::path p = fs::path(ip) / ruta;
+                    if (fs::exists(p)) { ruta_abs = p.string(); break; }
+                }
+            }
+        }
+
+        try {
+            ZetaPlugin* plugin = DlRegistry::instancia().cargar_plugin(ruta_abs);
+            if (!plugin) {
+                return mk_err("plugin", "No se pudo cargar plugin: " + ruta, 0);
+            }
+
+            // Print plugin info
+            const auto& info = plugin->info();
+            std::cout << "[PLUGIN] " << info.name << " v" << info.version << "\n";
+            if (!info.description.empty()) {
+                std::cout << "  " << info.description << "\n";
+            }
+            if (!info.author.empty()) {
+                std::cout << "  Author: " << info.author << "\n";
+            }
+
+            // Register functions from plugin
+            // Try common function names
+            std::vector<std::string> func_names;
+            if (args.size() > 1 && args[1]->tipo == ValorImpl::STR_VEC) {
+                // User specified function names
+                for (const auto& f : args[1]->str_vec_val) {
+                    func_names.push_back(f);
+                }
+            } else {
+                // Auto-detect: try common names
+                func_names = {"median", "percentile", "mode", "gcd", "factorial", 
+                             "is_prime", "fibonacci", "sum_vec", "greet"};
+            }
+
+            int registered = 0;
+            for (const auto& func_name : func_names) {
+                if (plugin->tiene_funcion(func_name)) {
+                    // Register function name in global scope
+                    // The actual calling mechanism will be handled through the plugin system
+                    ambito_global_->definir(func_name, mk_str("[plugin:" + info.name + "::" + func_name + "]"));
+                    registered++;
+                }
+            }
+
+            return mk_str("plugin loaded: " + info.name + " v" + info.version + 
+                          " (" + std::to_string(registered) + " functions)");
+        } catch (const std::exception& e) {
+            return mk_err("plugin", std::string("Error cargando plugin: ") + e.what(), 0);
+        }
+    }
+
+    if (nombre == "plugin_info") {
+        // plugin_info("lib.so") - Get plugin info without loading
+        if (args.empty() || args[0]->tipo != ValorImpl::STR)
+            return mk_err("runtime", "plugin_info requiere ruta del plugin", 0);
+
+        std::string ruta = args[0]->str_val;
+        std::string ruta_abs = resolver_ruta(ruta);
+
+        try {
+            ZetaPlugin temp_plugin;
+            if (!temp_plugin.cargar(ruta_abs)) {
+                return mk_err("plugin", "No se pudo cargar plugin: " + temp_plugin.ultimo_error(), 0);
+            }
+
+            const auto& info = temp_plugin.info();
+            std::map<std::string, ValorZeta> result;
+            result["name"] = mk_str(info.name);
+            result["version"] = mk_str(info.version);
+            result["description"] = mk_str(info.description);
+            result["author"] = mk_str(info.author);
+            result["path"] = mk_str(ruta_abs);
+            
+            return mk_dict(std::move(result));
+        } catch (const std::exception& e) {
+            return mk_err("plugin", std::string("Error: ") + e.what(), 0);
+        }
+    }
+
     if (nombre == "scene") {
         if (args.empty()) return mk_err("runtime", "scene requiere titulo", 0);
         std::string titulo = (args[0]->tipo == ValorImpl::STR) ? args[0]->str_val : "scene";
@@ -2097,6 +3409,25 @@ ValorZeta Interpreter::llamar_nativa(const std::string& nombre, const std::vecto
     if (nombre == "grafo_actual") {
         if (!grafo_actual_) return mk_null_val();
         return mk_scene(grafo_actual_);
+    }
+
+    if (nombre == "clear_arena") {
+        // Reset the arena allocator — frees all temporary values at once.
+        // This is a manual memory management primitive for large workloads.
+        // After calling this, any arena-allocated temporaries become invalid.
+        // Values stored in variables (via shared_ptr) are NOT affected.
+        valor_arena_.reset();
+        return mk_null_val();
+    }
+
+    if (nombre == "arena_bytes") {
+        // Return the number of bytes currently allocated in the arena.
+        return mk_num(static_cast<double>(valor_arena_.bytes_used()));
+    }
+
+    if (nombre == "zeta_version") {
+        // Return the Zeta language version string.
+        return mk_str("0.2.0");
     }
 
     return mk_err("runtime", "Funcion no definida: " + nombre, 0);

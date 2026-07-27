@@ -32,6 +32,16 @@
         "editor.tabSize": 4,
         "editor.insertSpaces": true
       }
+    },
+    "configuration": {
+      "title": "Zeta Language",
+      "properties": {
+        "zeta.lsp.path": {
+          "type": "string",
+          "default": "zeta-lsp",
+          "description": "Path to the zeta-lsp binary"
+        }
+      }
     }
   },
   "scripts": {

@@ -6,6 +6,7 @@
 #   ./install.sh                    # Install to /usr/local
 #   ./install.sh /home/user/.local  # Install to custom prefix
 #   PREFIX=/opt/zeta ./install.sh   # Install via env var
+#   ./install.sh --help             # Show help
 
 set -e
 
@@ -20,6 +21,56 @@ info()  { echo -e "${BLUE}[INFO]${NC} $1"; }
 ok()    { echo -e "${GREEN}[OK]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+
+show_help() {
+    echo -e "${BLUE}Zeta Language Installer${NC}"
+    echo
+    echo "Uso: ./install.sh [opciones] [prefix]"
+    echo
+    echo "Opciones:"
+    echo "  --help, -h          Mostrar esta ayuda"
+    echo "  --no-build          No compilar, solo instalar binarios existentes"
+    echo "  --no-dashboard      No compilar el dashboard (requiere X11/GL)"
+    echo
+    echo "Ejemplos:"
+    echo "  ./install.sh                         Instalar en /usr/local"
+    echo "  ./install.sh ~/.local                Instalar en ~/.local"
+    echo "  PREFIX=/opt/zeta ./install.sh        Instalar en /opt/zeta"
+    echo "  ./install.sh --no-build ~/zeta       Solo instalar, sin compilar"
+    echo
+    echo "Despues de instalar, agregua al PATH:"
+    echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+    echo
+}
+
+# Parse arguments
+NO_BUILD=false
+NO_DASHBOARD=false
+PREFIX_ARG=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --help|-h)
+            show_help
+            exit 0
+            ;;
+        --no-build)
+            NO_BUILD=true
+            shift
+            ;;
+        --no-dashboard)
+            NO_DASHBOARD=true
+            shift
+            ;;
+        -*)
+            error "Opcion desconocida: $1 (usa --help para ver opciones)"
+            ;;
+        *)
+            PREFIX_ARG="$1"
+            shift
+            ;;
+    esac
+done
 
 # Detect OS and arch
 detect_platform() {
@@ -90,25 +141,48 @@ build_binaries() {
     local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     cd "$SCRIPT_DIR"
 
+    if [ "$NO_BUILD" = true ]; then
+        info "Skipping build (--no-build)"
+        cd - >/dev/null
+        return
+    fi
+
     info "Building Zeta binaries..."
 
     # Build CLI
     info "  Compiling zeta (CLI)..."
-    ./build.sh cli 2>&1 | tail -1
-    ok "  zeta built"
+    if ./build.sh cli 2>&1 | tail -1; then
+        ok "  zeta built"
+    else
+        warn "  zeta build failed"
+    fi
 
     # Build server
     info "  Compiling zeta_server (HTTP)..."
-    ./build.sh server 2>&1 | tail -1
-    ok "  zeta_server built"
+    if ./build.sh server 2>&1 | tail -1; then
+        ok "  zeta_server built"
+    else
+        warn "  zeta_server build failed"
+    fi
 
     # Build term renderer
     info "  Compiling zeta_term (terminal)..."
-    ./build.sh term 2>&1 | tail -1
-    ok "  zeta_term built"
+    if ./build.sh term 2>&1 | tail -1; then
+        ok "  zeta_term built"
+    else
+        warn "  zeta_term build failed"
+    fi
+
+    # Build LSP
+    info "  Compiling zeta-lsp (Language Server)..."
+    if ./build.sh lsp 2>&1 | tail -1; then
+        ok "  zeta-lsp built"
+    else
+        warn "  zeta-lsp build failed"
+    fi
 
     # Dashboard only on Linux (requires X11)
-    if [ "$PLATFORM" = "linux" ]; then
+    if [ "$PLATFORM" = "linux" ] && [ "$NO_DASHBOARD" = false ]; then
         info "  Compiling zeta_dashboard (OpenGL)..."
         if ./build.sh dashboard 2>&1 | tail -1; then
             ok "  zeta_dashboard built"
@@ -116,6 +190,8 @@ build_binaries() {
             warn "  zeta_dashboard build failed (missing X11/GL libs?)"
             warn "  Install: sudo apt install libglfw3-dev libglew-dev libgl-dev"
         fi
+    elif [ "$NO_DASHBOARD" = true ]; then
+        info "  Skipping dashboard (--no-dashboard)"
     fi
 
     cd - >/dev/null
@@ -212,10 +288,10 @@ main() {
 
     detect_platform
     check_deps
-    set_prefix "$1"
+    set_prefix "$PREFIX_ARG"
     build_binaries
     install_files
     verify_install
 }
 
-main "$@"
+main

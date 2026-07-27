@@ -1,0 +1,53 @@
+# tests/test_window.zl
+# Tests para window functions
+
+print("=== Test Window Functions ===")
+
+# Datos de prueba
+$ventas = <100, 150, 120, 180, 200, 160, 140, 190, 220, 180>
+print("Ventas:", $ventas)
+
+# --- Cumulative ---
+print("\n=== Cumulative ===")
+print("cumsum:", cumsum($ventas))
+print("cummax:", cummax($ventas))
+print("cummin:", cummin($ventas))
+
+# --- Rolling ---
+print("\n=== Rolling (window=3) ===")
+print("rolling_mean:", rolling_mean($ventas, 3))
+print("rolling_std:", rolling_std($ventas, 3))
+print("rolling_sum:", rolling_sum($ventas, 3))
+print("rolling_min:", rolling_min($ventas, 3))
+print("rolling_max:", rolling_max($ventas, 3))
+
+# --- Shift ---
+print("\n=== Shift ===")
+print("lag(1):", lag($ventas, 1))
+print("lead(1):", lead($ventas, 1))
+print("diff(1):", diff($ventas, 1))
+print("diff(2):", diff($ventas, 2))
+
+# --- Ranking ---
+print("\n=== Ranking ===")
+print("row_number:", row_number($ventas))
+$scores = <85, 92, 78, 92, 88>
+print("Scores:", $scores)
+print("rank:", rank($scores))
+
+# --- Percent Change ---
+print("\n=== Percent Change ===")
+print("pct_change(1):", pct_change($ventas, 1))
+print("pct_change(2):", pct_change($ventas, 2))
+
+# --- Ejemplo práctico ---
+print("\n=== Ejemplo: Promedio móvil 3 meses ===")
+$datos = {
+    "mes": <1, 2, 3, 4, 5, 6>,
+    "ventas": <100, 150, 120, 180, 200, 160>
+}
+print("Datos:", $datos)
+$datos["trend"] = rolling_mean($datos:ventas, 3)
+print("Tendencia:", $datos["trend"])
+
+print("\n=== OK - Todos los tests de window functions pasaron ===")

@@ -16,6 +16,13 @@ ValorZeta mk_str(const std::string& v) {
     return p;
 }
 
+ValorZeta mk_str(std::string&& v) {
+    auto p = std::make_shared<ValorImpl>();
+    p->tipo = ValorImpl::STR;
+    p->str_val = std::move(v);
+    return p;
+}
+
 ValorZeta mk_bool(bool v) {
     auto p = std::make_shared<ValorImpl>();
     p->tipo = ValorImpl::BOOL;
@@ -30,10 +37,24 @@ ValorZeta mk_vec(const std::vector<double>& v) {
     return p;
 }
 
+ValorZeta mk_vec(std::vector<double>&& v) {
+    auto p = std::make_shared<ValorImpl>();
+    p->tipo = ValorImpl::VEC;
+    p->vec_val = std::move(v);
+    return p;
+}
+
 ValorZeta mk_bool_vec(const std::vector<bool>& v) {
     auto p = std::make_shared<ValorImpl>();
     p->tipo = ValorImpl::BOOL_VEC;
     p->bool_vec_val = v;
+    return p;
+}
+
+ValorZeta mk_bool_vec(std::vector<bool>&& v) {
+    auto p = std::make_shared<ValorImpl>();
+    p->tipo = ValorImpl::BOOL_VEC;
+    p->bool_vec_val = std::move(v);
     return p;
 }
 
@@ -44,6 +65,13 @@ ValorZeta mk_str_vec(const std::vector<std::string>& v) {
     return p;
 }
 
+ValorZeta mk_str_vec(std::vector<std::string>&& v) {
+    auto p = std::make_shared<ValorImpl>();
+    p->tipo = ValorImpl::STR_VEC;
+    p->str_vec_val = std::move(v);
+    return p;
+}
+
 ValorZeta mk_matriz(const std::vector<std::vector<double>>& v) {
     auto p = std::make_shared<ValorImpl>();
     p->tipo = ValorImpl::MATRIZ;
@@ -51,10 +79,24 @@ ValorZeta mk_matriz(const std::vector<std::vector<double>>& v) {
     return p;
 }
 
+ValorZeta mk_matriz(std::vector<std::vector<double>>&& v) {
+    auto p = std::make_shared<ValorImpl>();
+    p->tipo = ValorImpl::MATRIZ;
+    p->matriz_val = std::move(v);
+    return p;
+}
+
 ValorZeta mk_dict(const std::map<std::string, ValorZeta>& v) {
     auto p = std::make_shared<ValorImpl>();
     p->tipo = ValorImpl::DICT;
     p->dict_val = v;
+    return p;
+}
+
+ValorZeta mk_dict(std::map<std::string, ValorZeta>&& v) {
+    auto p = std::make_shared<ValorImpl>();
+    p->tipo = ValorImpl::DICT;
+    p->dict_val = std::move(v);
     return p;
 }
 

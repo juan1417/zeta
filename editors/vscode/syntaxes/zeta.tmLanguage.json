@@ -58,7 +58,7 @@
           }
         },
         {
-          "match": "\\b(load_csv|load_xlsx|mean|count|sum|min|max|stddev|abs|round|floor|ceil|pow|sqrt|format|time|len|upper|lower|substr|split|join|replace|find|reverse|sort|unique|push|range|map|filter|reduce|keys|values|type|transpose|dot|head|select|drop|drop_nan|is_null|fill_null|is_error|plot|metric|dashboard|serve|route)\\b",
+          "match": "\\b(load_csv|load_json|load_xlsx|save_csv|save_xlsx|mean|count|sum|min|max|stddev|abs|round|floor|ceil|pow|sqrt|format|time|len|upper|lower|substr|split|join|replace|find|reverse|sort|unique|push|range|map|filter|reduce|keys|values|type|transpose|dot|head|select|drop|drop_nan|is_null|fill_null|is_error|mk_err|mk_null_val|plot|metric|dashboard|serve|route|guardar_grafo|cargar_grafo|grafo_actual|load_lib)\\b",
           "captures": {
             "0": { "name": "support.function.builtin.zeta" }
           }

@@ -579,11 +579,31 @@ int main(int argc, char* argv[]) {
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
-        if (a == "--host" && i + 1 < argc) host = argv[++i];
+        if (a == "--help" || a == "-h") {
+            std::printf("Zeta Term - Renderer ANSI de terminal\n\n");
+            std::printf("Uso: zeta_term [opciones]\n\n");
+            std::printf("Opciones:\n");
+            std::printf("  --help, -h              Mostrar esta ayuda\n");
+            std::printf("  --host HOST             Host del server (default: localhost)\n");
+            std::printf("  --port PORT             Puerto del server (default: 8080)\n");
+            std::printf("  --file PATH             Leer escena desde archivo JSON en vez del server\n");
+            std::printf("  --width WIDTH           Ancho forzado de la terminal\n");
+            std::printf("  --no-color              Deshabilitar colores ANSI\n");
+            std::printf("\nEjemplos:\n");
+            std::printf("  zeta_term                              Conectar al server por defecto\n");
+            std::printf("  zeta_term --host 192.168.1.10 --port 9000\n");
+            std::printf("  zeta_term --file scene.json            Renderizar desde archivo\n");
+            return 0;
+        }
+        else if (a == "--host" && i + 1 < argc) host = argv[++i];
         else if (a == "--port" && i + 1 < argc) port = std::atoi(argv[++i]);
         else if (a == "--file" && i + 1 < argc) scene_file = argv[++i];
         else if (a == "--width" && i + 1 < argc) forced_width = std::atoi(argv[++i]);
         else if (a == "--no-color") g_color = false;
+        else {
+            std::fprintf(stderr, "Opcion desconocida: %s\nUsa --help para ver las opciones.\n", a.c_str());
+            return 1;
+        }
     }
 
     int W = forced_width > 0 ? forced_width : detect_width();

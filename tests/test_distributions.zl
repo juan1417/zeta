@@ -1,0 +1,69 @@
+# tests/test_distributions.zl
+# Tests para distribuciones y testing estadístico
+
+print("=== Test Distribuciones y Testing ===")
+
+# --- Normal Distribution ---
+print("=== Normal Distribution ===")
+print("dnorm(0):", dnorm(0))
+print("dnorm(1):", dnorm(1))
+print("pnorm(0):", pnorm(0))
+print("pnorm(1.96):", pnorm(1.96))
+print("qnorm(0.975):", qnorm(0.975))
+
+# --- Gamma Distribution ---
+print("\n=== Gamma Distribution ===")
+print("dgamma(1, 2, 1):", dgamma(1, 2, 1))
+
+# --- Beta Distribution ---
+print("\n=== Beta Distribution ===")
+print("dbeta(0.5, 2, 2):", dbeta(0.5, 2, 2))
+
+# --- Uniform Distribution ---
+print("\n=== Uniform Distribution ===")
+print("dunif(0.5):", dunif(0.5))
+print("dunif(1.5):", dunif(1.5))
+
+# --- Student's t ---
+print("\n=== Student's t ===")
+print("dt_dist(0, 10):", dt_dist(0, 10))
+
+# --- F Distribution ---
+print("\n=== F Distribution ===")
+print("df_dist(1, 5, 10):", df_dist(1, 5, 10))
+
+# --- Chi-squared ---
+print("\n=== Chi-squared ===")
+print("dchisq(2, 3):", dchisq(2, 3))
+
+# --- T-test ---
+print("\n=== T-test ===")
+$a = <10, 12, 14, 16, 18>
+$b = <20, 22, 24, 26, 28>
+$t_result = t_test($a, $b)
+print("T-test result:", $t_result)
+
+# --- ANOVA ---
+print("\n=== ANOVA ===")
+$g1 = <10, 12, 14>
+$g2 = <20, 22, 24>
+$g3 = <30, 32, 34>
+$anova_result = anova($g1, $g2, $g3)
+print("ANOVA result:", $anova_result)
+
+# --- Chi-square test ---
+print("\n=== Chi-square test ===")
+$obs = <50, 30, 20>
+$exp = <40, 40, 20>
+$chi2_result = chi_square($obs, $exp)
+print("Chi-square result:", $chi2_result)
+
+# --- Linear Regression ---
+print("\n=== Linear Regression ===")
+$x = <1, 2, 3, 4, 5>
+$y = <2, 4, 5, 4, 5>
+$reg = linear_regression($x, $y)
+print("Regression:", $reg)
+print("Formula:", $reg["formula"])
+
+print("\n=== OK - Todos los tests de distribuciones pasaron ===")

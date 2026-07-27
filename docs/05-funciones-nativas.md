@@ -379,7 +379,66 @@ $df:ingresos = fill_null($df:ingresos, 0)
 $df = drop_nan($df, "ventas")   # eliminar solo los que realmente faltan
 ```
 
-## 5.8. Matrices y álgebra
+## 5.8. Data Manipulation
+
+### `group_by($df, $col1, [$col2...])` → `dict`
+
+Groups a DataFrame by one or more columns. Returns a grouped structure that can be used with `agg`.
+
+```zeta
+$ventas = {
+    "canal": <"online", "tienda", "online", "tienda">,
+    "monto": <100, 200, 150, 250>
+}
+
+$grouped = group_by($ventas, "canal")
+print($grouped)  # Dict with _type, _data, _group_cols, _groups
+```
+
+### `agg($grouped, $col, $func)` → `DataFrame`
+
+Aggregates a grouped DataFrame column. Supported functions: `sum`, `mean`, `count`, `min`, `max`, `stddev`, `median`.
+
+```zeta
+$grouped = group_by($ventas, "canal")
+$result = agg($grouped, "monto", "sum")
+print($result)
+# canal  | monto_sum
+# online | 250
+# tienda | 450
+```
+
+Multiple group columns:
+```zeta
+$grouped = group_by($ventas, "canal", "region")
+$result = agg($grouped, "monto", "mean")
+```
+
+### `merge($df1, $df2, $on)` → `DataFrame`
+
+Inner join two DataFrames on a key column.
+
+```zeta
+$clientes = {
+    "id": <1, 2, 3>,
+    "nombre": <"Ana", "Bob", "Carol">
+}
+$compras = {
+    "cliente_id": <1, 2, 1, 3>,
+    "producto": <"A", "B", "C">
+}
+
+$merged = merge($clientes, $compras, "id")
+print($merged)
+# id | nombre | cliente_id | producto
+# 1  | Ana    | 1          | A
+# 1  | Ana    | 1          | C
+# 2  | Bob    | 2          | B
+# 3  | Carol  | 3          | A
+```
+
+## 5.9. Matrices y álgebra
+
 
 ### `transpose($matriz)` → `matriz`
 
@@ -399,7 +458,7 @@ Producto punto de dos vectores. Devuelve `null` si tienen longitudes distintas o
 print(dot(<1, 2, 3>, <4, 5, 6>))    # 32 (= 1*4 + 2*5 + 3*6)
 ```
 
-## 5.9. Programación funcional
+## 5.10. Programación funcional
 
 ### `map($vec, $fn)` → `vec`
 
@@ -428,7 +487,7 @@ fn sumar($acc, $x) { return $acc + $x }
 print(reduce(<1, 2, 3, 4, 5>, sumar, 0))    # 15
 ```
 
-## 5.10. Visualización y reporting
+## 5.11. Visualización y reporting
 
 ### `plot($data, [$tipo], [$titulo])` → `grafico`
 
@@ -467,7 +526,7 @@ Genera un archivo HTML con el dashboard (Chart.js embebido). **Obsoleto en favor
 serve($db, 8080, "reporte.html")
 ```
 
-## 5.11. I/O
+## 5.12. I/O
 
 ### `load_csv($ruta, $delim=",")` → `df`
 
@@ -551,7 +610,7 @@ load_lib("libtestnative.so", {
 })
 ```
 
-## 5.12. Sistema y errores
+## 5.13. Sistema y errores
 
 ### `mk_err($tipo, $mensaje)` → `err`
 
@@ -586,7 +645,490 @@ $t1 = time()
 print("Tiempo:", $t1 - $t0, "segundos")
 ```
 
-## 5.13. Tabla resumen rápida
+## 5.14. Gestión de memoria (v0.2)
+
+### `clear_arena()` → `null`
+
+Resetea el arena allocator, liberando todas las allocaciones temporales de golpe. O(1) — no importa cuántos valores haya. Los valores almacenados en variables (via `shared_ptr`) NO se ven afectados.
+
+```zeta
+# Útil en scripts largos que cargan muchos datos
+$data = load_csv("archivo_grande.csv")
+# ... procesamiento ...
+clear_arena()  # Libera memoria temporal
+```
+
+### `arena_bytes()` → `num`
+
+Devuelve el número de bytes actualmente allocados en el arena. Útil para profiling.
+
+```zeta
+print("Arena:", arena_bytes(), "bytes")
+clear_arena()
+print("Arena después de clear:", arena_bytes(), "bytes")
+```
+
+### `zeta_version()` → `string`
+
+Devuelve la versión actual del lenguaje Zeta.
+
+```zeta
+print("Zeta version:", zeta_version())  # "0.2.0"
+```
+
+## 5.15. Exploración de Datos
+
+### `info($df)` → `string`
+
+Muestra información resumen de un DataFrame: columnas, tipos, valores no-nulos, nulos, y porcentaje de nulls.
+
+```zeta
+$df = load_csv("ventas.csv")
+info($df)
+# DataFrame: 10,000 filas x 8 columnas
+# 
+# Columna      Tipo    No-Null   Null    %Null
+# --------------------------------------------------
+# id           num     10,000    0       0.0%
+# nombre       str     9,850     150     1.5%
+# edad         num     9,700     300     3.0%
+# salario      num     10,000    0       0.0%
+# departamento str     9,500     500     5.0%
+# 
+# Tipos: num(3), str(2), bool(0)
+```
+
+### `describe($df)` → `string`
+
+Muestra estadísticas descriptivas para columnas numéricas: count, mean, std, min, 25%, 50%, 75%, max.
+
+```zeta
+describe($df)
+# Estadisticas: 4 columnas numericas
+# 
+#        id        edad      salario     score
+# ------------------------------------------------
+# count   10000     9700      10000       9200
+# mean    5000.0    34.5      52000.0     72.3
+# std     2887.0    12.1      15000.0     18.5
+# min     1.0       18.0      25000.0     0.0
+# 25%     2500.0    25.0      42000.0     58.0
+# 50%     5000.0    33.0      50000.0     74.0
+# 75%     7500.0    42.0      60000.0     88.0
+# max     10000.0   65.0      120000.0    100.0
+```
+
+### `value_counts($col)` → `DataFrame`
+
+Cuenta la frecuencia de cada valor único en un vector. Retorna DataFrame con columnas `valor` y `count`.
+
+```zeta
+value_counts($df:canal)
+# canal    | count
+# ---------------
+# online   | 2500
+# tienda   | 2000
+# rrhh     | 1500
+
+value_counts(<1, 1, 2, 3, 3, 3>)
+# valor | count
+# -------------
+# 3     | 3
+# 1     | 2
+# 2     | 1
+```
+
+### `median($vec)` → `num`
+
+Retorna el valor mediano (percentil 50).
+
+```zeta
+median(<1, 2, 3, 4, 5>)  # 3
+median(<1, 2, 3, 4>)     # 2.5
+median(<10, null, 30>)    # 10 (ignora nulls)
+```
+
+### `percentile($vec, $q)` → `num`
+
+Retorna el percentil q (0-100) con interpolación lineal.
+
+```zeta
+percentile(<1,2,3,4,5>, 75)  # 4.0
+percentile(<1,2,3,4,5>, 25)  # 2.0
+percentile(<1,2,3,4,5>, 50)  # 3.0
+```
+
+### `mode($vec)` → `num`
+
+Retorna el valor más frecuente.
+
+```zeta
+mode(<1, 1, 2, 3, 3, 3>)  # 3
+mode(<5, 5, 5, 1, 2>)     # 5
+```
+
+### `cor($v1, $v2)` → `num`
+
+Correlación de Pearson entre dos vectores (-1 a 1).
+
+```zeta
+cor(<1,2,3,4,5>, <2,4,6,8,10>)  # 1.0 (correlación perfecta)
+cor($df:edad, $df:score)         # 0.85
+```
+
+### `cov($v1, $v2)` → `num`
+
+Covarianza entre dos vectores.
+
+```zeta
+cov(<1,2,3,4,5>, <2,4,6,8,10>)  # 4.0
+cov($df:edad, $df:score)         # 12.5
+```
+
+### `nunique($vec)` → `num`
+
+Cantidad de valores únicos (ignora nulls).
+
+```zeta
+nunique(<1, 2, 2, 3, 3, 3>)  # 3
+nunique($df:canal)             # 5
+```
+
+### `isna($df | $vec)` → `DataFrame` o `vector<bool>`
+
+Retorna DataFrame o vector booleano indicando posición de nulls.
+
+```zeta
+isna($df)  # DataFrame de bools (True donde hay null)
+isna(<1, null, 3>)  # <false, true, false>
+```
+
+### `duplicated($vec)` → `vector<bool>`
+
+Retorna vector booleano indicando duplicados (True en la segunda aparición en adelante).
+
+```zeta
+duplicated(<1, 2, 1, 3>)  # <false, false, true, false>
+duplicated(<"a", "b", "a">)  # <false, false, true>
+```
+
+### `cut($vec, $bins)` → `vector`
+
+Discretiza un vector numérico en N bins de igual ancho. Retorna vector 1-indexed.
+
+```zeta
+cut(<1,2,3,4,5>, 3)  # <1, 1, 2, 2, 3>
+cut(<10,20,30,40,50>, 2)  # <1, 1, 2, 2, 2>
+```
+
+### `qcut($vec, $q)` → `vector`
+
+Discretiza un vector numérico en q cuantiles. Retorna vector 1-indexed.
+
+```zeta
+qcut(<1,2,3,4,5>, 4)  # <1, 1, 2, 3, 4>
+qcut(<1,2,3,4,5,6,7,8>, 4)  # <1, 1, 2, 2, 3, 3, 4, 4>
+```
+
+### `tail($df | $vec, $n=5)` → `DataFrame` o `vector`
+
+Retorna las últimas N filas o elementos.
+
+```zeta
+tail($df, 5)    # Últimas 5 filas
+tail($vec, 3)   # Últimos 3 elementos
+tail($str_vec, 2)  # Últimos 2 strings
+```
+
+### `sample($df, $n=5)` → `DataFrame`
+
+Retorna una muestra aleatoria de N filas (sin reemplazo).
+
+```zeta
+sample($df, 10)  # 10 filas aleatorias
+sample($df, 100)  # 100 filas aleatorias
+```
+
+## 5.16. Distribuciones Estadísticas
+
+### `dnorm($x, [$mean], [$sd])` → `num`
+
+Densidad de probabilidad de la distribución normal.
+
+```zeta
+dnorm(0)          # 0.3989 (normal estándar)
+dnorm(1.96)       # 0.0584
+dnorm(0, 0, 1)    # 0.3989 (misma que arriba)
+dnorm(5, 10, 2)   # 0.0883 (normal media=10, sd=2)
+```
+
+### `pnorm($x, [$mean], [$sd])` → `num`
+
+Función de distribución acumulada (CDF) de la normal.
+
+```zeta
+pnorm(0)          # 0.5
+pnorm(1.96)       # 0.975
+pnorm(-1.96)      # 0.025
+```
+
+### `qnorm($p, [$mean], [$sd])` → `num`
+
+Quantil (inversa de la CDF) de la normal.
+
+```zeta
+qnorm(0.5)        # 0.0
+qnorm(0.975)      # 1.96
+qnorm(0.025)      # -1.96
+```
+
+### `dgamma($x, $shape, $rate)` → `num`
+
+Densidad de probabilidad de la distribución gamma.
+
+```zeta
+dgamma(1, 2, 1)   # 0.368
+dgamma(2, 3, 1)   # 0.271
+```
+
+### `dbeta($x, $alpha, $beta)` → `num`
+
+Densidad de probabilidad de la distribución beta.
+
+```zeta
+dbeta(0.5, 2, 2)  # 1.5
+dbeta(0.3, 1, 5)  # 2.62
+```
+
+### `dunif($x, [$min], [$max])` → `num`
+
+Densidad de probabilidad de la distribución uniforme.
+
+```zeta
+dunif(0.5)        # 1.0 (en [0,1])
+dunif(1.5)        # 0.0 (fuera de [0,1])
+dunif(3, 0, 10)   # 0.1
+```
+
+### `dt_dist($x, $df)` → `num`
+
+Densidad de probabilidad de la distribución t de Student.
+
+```zeta
+dt_dist(0, 10)    # 0.389
+dt_dist(2, 5)     # 0.068
+```
+
+### `df_dist($x, $df1, $df2)` → `num`
+
+Densidad de probabilidad de la distribución F.
+
+```zeta
+df_dist(1, 5, 10)   # 0.000013
+df_dist(2, 10, 20)  # 0.0013
+```
+
+### `dchisq($x, $df)` → `num`
+
+Densidad de probabilidad de la distribución chi-cuadrado.
+
+```zeta
+dchisq(2, 3)      # 2.46
+dchisq(5, 4)      # 0.176
+```
+
+## 5.17. Testing Estadístico
+
+### `t_test($sample1, $sample2)` → `dict`
+
+Test t de Student para dos muestras independientes.
+
+Retorna: `t_statistic`, `df`, `p_value`, `significant` (1 si p < 0.05)
+
+```zeta
+$a = <10, 12, 14, 16, 18>
+$b = <20, 22, 24, 26, 28>
+result = t_test($a, $b)
+print(result:t_statistic)  # -5.0
+print(result:p_value)      # 0.001
+print(result:significant)  # 1 (rechaza H0)
+```
+
+### `anova($group1, $group2, [...])` → `dict`
+
+Análisis de varianza de una vía (one-way ANOVA).
+
+Retorna: `f_statistic`, `groups`
+
+```zeta
+$g1 = <10, 12, 14>
+$g2 = <20, 22, 24>
+$g3 = <30, 32, 34>
+result = anova($g1, $g2, $g3)
+print(result:f_statistic)  # 75.0
+```
+
+### `chi_square($observed, $expected)` → `dict`
+
+Test de chi-cuadrado de bondad de ajuste.
+
+Retorna: `chi_square`, `df`
+
+```zeta
+$obs = <50, 30, 20>
+$exp = <40, 40, 20>
+result = chi_square($obs, $exp)
+print(result:chi_square)  # 5.0
+print(result:df)          # 2
+```
+
+## 5.18. Regresión
+
+### `linear_regression($x, $y)` → `dict`
+
+Regresión lineal simple.
+
+Retorna: `slope`, `intercept`, `r_squared`, `std_error`, `predicted`, `formula`
+
+```zeta
+$x = <1, 2, 3, 4, 5>
+$y = <2, 4, 5, 4, 5>
+result = linear_regression($x, $y)
+print(result:slope)        # 0.6
+print(result:intercept)    # 2.2
+print(result:r_squared)    # 0.6
+print(result:formula)      # "y = 0.6 * x + 2.2"
+print(result:predicted)    # <2.8, 3.4, 4.0, 4.6, 5.2>
+```
+
+## 5.19. Window Functions
+
+### `cumsum($vec)` → `vector`
+
+Suma acumulada.
+
+```zeta
+cumsum(<10, 20, 30, 40>)  # <10, 30, 60, 100>
+```
+
+### `cummax($vec)` → `vector`
+
+Máximo acumulada.
+
+```zeta
+cummax(<10, 30, 20, 40>)  # <10, 30, 30, 40>
+```
+
+### `cummin($vec)` → `vector`
+
+Mínimo acumulado.
+
+```zeta
+cummin(<40, 20, 30, 10>)  # <40, 20, 20, 10>
+```
+
+### `rolling_mean($vec, $window)` → `vector`
+
+Promedio móvil con ventana deslizante.
+
+```zeta
+$ventas = <100, 150, 120, 180, 200>
+rolling_mean($ventas, 3)
+# [100, 125, 123.3, 150, 166.7]
+# Solo tiene 3 elementos para el cálculo completo
+```
+
+### `rolling_std($vec, $window)` → `vector`
+
+Desviación estándar móvil.
+
+```zeta
+rolling_std($ventas, 3)  # [<null>, 25.0, 20.5, 24.5, 34.0]
+```
+
+### `rolling_sum($vec, $window)` → `vector`
+
+Suma móvil.
+
+```zeta
+rolling_sum($ventas, 3)  # [100, 250, 370, 450, 500]
+```
+
+### `rolling_min($vec, $window)` → `vector`
+
+Mínimo móvil.
+
+```zeta
+rolling_min($ventas, 3)  # [100, 100, 100, 120, 120]
+```
+
+### `rolling_max($vec, $window)` → `vector`
+
+Máximo móvil.
+
+```zeta
+rolling_max($ventas, 3)  # [100, 150, 150, 180, 200]
+```
+
+### `lag($vec, $n)` → `vector`
+
+Valor de hace n filas (shift hacia atrás).
+
+```zeta
+lag(<10, 20, 30, 40>, 1)  # <null, 10, 20, 30>
+lag(<10, 20, 30, 40>, 2)  # <null, null, 10, 20>
+```
+
+### `lead($vec, $n)` → `vector`
+
+Valor dentro de n filas (shift hacia adelante).
+
+```zeta
+lead(<10, 20, 30, 40>, 1)  # <20, 30, 40, null>
+lead(<10, 20, 30, 40>, 2)  # <30, 40, null, null>
+```
+
+### `diff($vec, $n)` → `vector`
+
+Diferencia con valor anterior (n filas atrás).
+
+```zeta
+diff(<100, 150, 120, 180>, 1)  # <null, 50, -30, 60>
+diff(<100, 150, 120, 180>, 2)  # <null, null, 20, 30>
+```
+
+### `row_number($vec)` → `vector`
+
+Número de fila secuencial (1, 2, 3...).
+
+```zeta
+row_number(<10, 20, 30>)  # <1, 2, 3>
+```
+
+### `rank($vec)` → `vector`
+
+Ranking con manejo de empates (promedio de rangos).
+
+```zeta
+rank(<85, 92, 78, 92, 88>)  # <2, 4.5, 1, 4.5, 3>
+# 78 es el menor → rank 1
+# 85 es segundo → rank 2
+# 88 es tercero → rank 3
+# 92 y 92 empatan → ranks 4 y 5, promedio = 4.5
+```
+
+### `pct_change($vec, $n)` → `vector`
+
+Cambio porcentual vs valor anterior (n filas atrás).
+
+```zeta
+pct_change(<100, 150, 120, 180>, 1)
+# <null, 50%, -20%, 50%>
+# (150-100)/100 = 50%
+# (120-150)/150 = -20%
+```
+
+## 5.20. Tabla resumen rápida
 
 | Función | Categoría | Firma | Retorna |
 |---------|-----------|-------|---------|
@@ -624,6 +1166,9 @@ print("Tiempo:", $t1 - $t0, "segundos")
 | `head` | df/vec | `head(x, [num])` | df/vec |
 | `drop` | df | `drop(df, str)` | df |
 | `drop_nan` | df | `drop_nan(df, str)` | df |
+| `group_by` | manipulation | `group_by(df, str, ...)` | dict |
+| `agg` | manipulation | `agg(dict, str, str)` | df |
+| `merge` | manipulation | `merge(df, df, str)` | df |
 | `transpose` | matriz | `transpose(matriz)` | matriz |
 | `dot` | matriz | `dot(vec, vec)` | num |
 | `map` | functional | `map(vec, fn)` | vec |
@@ -646,3 +1191,60 @@ print("Tiempo:", $t1 - $t0, "segundos")
 | `mk_null_val` | null | `mk_null_val()` | num (NaN) |
 | `time` | sys | `time()` | num |
 | `print` | io | `print(...)` | null |
+| `clear_arena` | memory | `clear_arena()` | null |
+| `arena_bytes` | memory | `arena_bytes()` | num |
+| `zeta_version` | sys | `zeta_version()` | str |
+| `info` | explore | `info(df)` | string |
+| `describe` | explore | `describe(df)` | string |
+| `value_counts` | explore | `value_counts(vec)` | df |
+| `median` | stats | `median(vec)` | num |
+| `percentile` | stats | `percentile(vec, num)` | num |
+| `mode` | stats | `mode(vec)` | num |
+| `cor` | stats | `cor(vec, vec)` | num |
+| `cov` | stats | `cov(vec, vec)` | num |
+| `nunique` | explore | `nunique(vec)` | num |
+| `isna` | explore | `isna(df/vec)` | df/bool_vec |
+| `duplicated` | explore | `duplicated(vec)` | bool_vec |
+| `cut` | explore | `cut(vec, num)` | vec |
+| `qcut` | explore | `qcut(vec, num)` | vec |
+| `tail` | explore | `tail(df/vec, [num])` | df/vec |
+| `sample` | explore | `sample(df, [num])` | df |
+| `dnorm` | dist | `dnorm(num, [num], [num])` | num |
+| `pnorm` | dist | `pnorm(num, [num], [num])` | num |
+| `qnorm` | dist | `qnorm(num, [num], [num])` | num |
+| `dgamma` | dist | `dgamma(num, num, num)` | num |
+| `dbeta` | dist | `dbeta(num, num, num)` | num |
+| `dunif` | dist | `dunif(num, [num], [num])` | num |
+| `dt_dist` | dist | `dt_dist(num, num)` | num |
+| `df_dist` | dist | `df_dist(num, num, num)` | num |
+| `dchisq` | dist | `dchisq(num, num)` | num |
+| `t_test` | test | `t_test(vec, vec)` | dict |
+| `anova` | test | `anova(vec, vec, ...)` | dict |
+| `chi_square` | test | `chi_square(vec, vec)` | dict |
+| `linear_regression` | reg | `linear_regression(vec, vec)` | dict |
+| `cumsum` | window | `cumsum(vec)` | vec |
+| `cummax` | window | `cummax(vec)` | vec |
+| `cummin` | window | `cummin(vec)` | vec |
+| `rolling_mean` | window | `rolling_mean(vec, num)` | vec |
+| `rolling_std` | window | `rolling_std(vec, num)` | vec |
+| `rolling_sum` | window | `rolling_sum(vec, num)` | vec |
+| `rolling_min` | window | `rolling_min(vec, num)` | vec |
+| `rolling_max` | window | `rolling_max(vec, num)` | vec |
+| `lag` | window | `lag(vec, num)` | vec |
+| `lead` | window | `lead(vec, num)` | vec |
+| `diff` | window | `diff(vec, num)` | vec |
+| `row_number` | window | `row_number(vec)` | vec |
+| `rank` | window | `rank(vec)` | vec |
+| `pct_change` | window | `pct_change(vec, num)` | vec |
+| `drop_duplicates` | clean | `drop_duplicates(df)` | df |
+| `rename` | clean | `rename(df, str, str)` | df |
+| `select_cols` | clean | `select_cols(df, vec)` | df |
+| `drop_cols` | clean | `drop_cols(df, vec)` | df |
+| `fillna` | clean | `fillna(vec, str/num)` | vec |
+| `replace_val` | clean | `replace_val(df, str, str, str)` | df |
+| `clip` | clean | `clip(vec, num, num)` | vec |
+| `trim` | clean | `trim(vec, num)` | vec |
+| `normalize` | clean | `normalize(vec)` | vec |
+| `standardize` | clean | `standardize(vec)` | vec |
+| `plugin` | plugin | `plugin(str)` | bool |
+| `plugin_info` | plugin | `plugin_info()` | dict |

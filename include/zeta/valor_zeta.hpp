@@ -185,12 +185,18 @@ using ValorZeta = std::shared_ptr<ValorImpl>;
 
 ValorZeta mk_num(double v);
 ValorZeta mk_str(const std::string& v);
+ValorZeta mk_str(std::string&& v);  // move overload
 ValorZeta mk_bool(bool v);
 ValorZeta mk_vec(const std::vector<double>& v);
+ValorZeta mk_vec(std::vector<double>&& v);  // move overload
 ValorZeta mk_bool_vec(const std::vector<bool>& v);
+ValorZeta mk_bool_vec(std::vector<bool>&& v);  // move overload
 ValorZeta mk_str_vec(const std::vector<std::string>& v);
+ValorZeta mk_str_vec(std::vector<std::string>&& v);  // move overload
 ValorZeta mk_matriz(const std::vector<std::vector<double>>& v);
+ValorZeta mk_matriz(std::vector<std::vector<double>>&& v);  // move overload
 ValorZeta mk_dict(const std::map<std::string, ValorZeta>& v);
+ValorZeta mk_dict(std::map<std::string, ValorZeta>&& v);  // move overload
 ValorZeta mk_df(const DataFrame& v);
 ValorZeta mk_df(DataFrame&& v);
 ValorZeta mk_err(const std::string& tipo, const std::string& msg, int linea);

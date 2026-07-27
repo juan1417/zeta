@@ -1,0 +1,91 @@
+# tests/test_explore.zl
+# Tests para funciones de exploración de datos
+
+print("=== Test Exploración de Datos ===")
+
+# Crear DataFrame de prueba
+$df = {
+    "edad": <25, 30, 35, 28, null, 42, 38, 25, 30, 35>,
+    "nombre": <"Ana", "Bob", "Cat", "Dan", "Eve", "Fay", "Gus", "Hal", "Ivy", "Jan">,
+    "score": <8.5, 7.0, 9.0, 8.0, 6.5, 9.5, 7.5, 8.5, 7.0, 9.0>,
+    "activo": <true, true, false, true, true, false, true, true, false, true>
+}
+
+# --- Test info ---
+print("=== info ===")
+$info = info($df)
+print($info)
+
+# --- Test describe ---
+print("\n=== describe ===")
+$desc = describe($df)
+print($desc)
+
+# --- Test tail ---
+print("\n=== tail ===")
+$last = tail($df, 3)
+print("Últimas 3 filas:", $last)
+
+# --- Test sample ---
+print("\n=== sample ===")
+$muestra = sample($df, 3)
+print("Muestra 3 filas:", $muestra)
+
+# --- Test value_counts ---
+print("\n=== value_counts ===")
+$frecuencias = value_counts($df:edad)
+print("Frecuencias edad:", $frecuencias)
+
+# --- Test nunique ---
+print("\n=== nunique ===")
+$unicos = nunique($df:edad)
+print("Unique edades:", $unicos)
+
+# --- Test median ---
+print("\n=== median ===")
+$med = median($df:score)
+print("Median score:", $med)
+
+# --- Test percentile ---
+print("\n=== percentile ===")
+$p75 = percentile($df:score, 75)
+$p25 = percentile($df:score, 25)
+print("P75 score:", $p75)
+print("P25 score:", $p25)
+
+# --- Test mode ---
+print("\n=== mode ===")
+$moda = mode($df:edad)
+print("Mode edad:", $moda)
+
+# --- Test cor ---
+print("\n=== cor ===")
+$correlacion = cor($df:edad, $df:score)
+print("Cor(edad, score):", $correlacion)
+
+# --- Test cov ---
+print("\n=== cov ===")
+$covarianza = cov($df:edad, $df:score)
+print("Cov(edad, score):", $covarianza)
+
+# --- Test isna ---
+print("\n=== isna ===")
+$nuls = isna($df)
+print("Nulls DataFrame:", $nuls)
+
+# --- Test duplicated ---
+print("\n=== duplicated ===")
+$duplicados = duplicated($df:edad)
+print("Duplicated edades:", $duplicados)
+
+# --- Test cut ---
+print("\n=== cut ===")
+$bins = cut($df:edad, 3)
+print("Edades en bins:", $bins)
+
+# --- Test qcut ---
+print("\n=== qcut ===")
+$qbins = qcut($df:edad, 4)
+print("Edades en cuartiles:", $qbins)
+
+print("\n=== OK - Todos los tests pasaron ===")

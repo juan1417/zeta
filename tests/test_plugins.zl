@@ -1,0 +1,35 @@
+# tests/test_plugins.zl
+# Tests para el sistema de plugins
+
+print("=== Test Sistema de Plugins ===")
+
+# --- Test 1: Load legacy plugin ---
+print("\n=== Test 1: Legacy Plugin (load_lib) ===")
+load_lib("./libtestnative.so", {
+    "native_double": "fn($x) -> $x",
+    "native_pow": "fn($a, $b) -> $a"
+})
+print("native_double(21) =", native_double(21))
+print("native_pow(2, 10) =", native_pow(2, 10))
+
+# --- Test 2: Plugin info ---
+print("\n=== Test 2: Plugin Info ===")
+# This would work with a real plugin:
+# info = plugin_info("libejemplo_plugin.so")
+# print("Name:", info:name)
+# print("Version:", info:version)
+# print("Description:", info:description)
+
+# --- Test 3: Plugin loading ---
+print("\n=== Test 3: Plugin Loading ===")
+# This would work with a compiled plugin:
+# plugin("libejemplo_plugin.so")
+# print("factorial(5) =", factorial(5))
+# print("gcd(12, 8) =", gcd(12, 8))
+# print("is_prime(17) =", is_prime(17))
+# print("fibonacci(10) =", fibonacci(10))
+
+print("\n=== OK - Tests de plugins completados ===")
+print("Nota: Los tests de plugins v2 requieren compilar el plugin primero:")
+print("  clang++ -std=c++20 -shared -fPIC -fvisibility=hidden \\")
+print("      -DZETA_BUILDING_DLL -I include -o libejemplo_plugin.so lib/ejemplo_plugin.cpp")

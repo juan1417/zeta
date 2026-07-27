@@ -9,13 +9,18 @@
 .PARAMETER Prefix
     Installation directory. Default: C:\Zeta
 
+.PARAMETER Help
+    Show help message
+
 .EXAMPLE
     .\install.ps1
     .\install.ps1 -Prefix "$env:LOCALAPPDATA\Zeta"
+    .\install.ps1 -Help
 #>
 
 param(
-    [string]$Prefix = "C:\Zeta"
+    [string]$Prefix = "C:\Zeta",
+    [switch]$Help
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,6 +30,25 @@ function Write-Info  { Write-Host "[INFO]  $args" -ForegroundColor Blue }
 function Write-Ok    { Write-Host "[OK]    $args" -ForegroundColor Green }
 function Write-Warn  { Write-Host "[WARN]  $args" -ForegroundColor Yellow }
 function Write-Err   { Write-Host "[ERROR] $args" -ForegroundColor Red }
+
+# Show help
+if ($Help) {
+    Write-Host ""
+    Write-Host "Zeta Language Installer (Windows)" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Uso:" -ForegroundColor Yellow
+    Write-Host "  .\install.ps1                         Instalar en C:\Zeta"
+    Write-Host "  .\install.ps1 -Prefix 'C:\MiRuta'     Instalar en ruta custom"
+    Write-Host "  .\install.ps1 -Help                   Mostrar esta ayuda"
+    Write-Host ""
+    Write-Host "Requisitos:" -ForegroundColor Yellow
+    Write-Host "  - clang++ (LLVM) o cl.exe (MSVC) en PATH"
+    Write-Host "  - Windows 10/11 x64"
+    Write-Host ""
+    Write-Host "Despues de instalar, reinicia la terminal para que PATH surta efecto." -ForegroundColor Gray
+    Write-Host ""
+    exit 0
+}
 
 Write-Host ""
 Write-Host "=== Zeta Language Installer (Windows) ===" -ForegroundColor Cyan
@@ -182,6 +206,22 @@ if (Build-Binary -Name "zeta_server" -MainSrc "src\server_main.cpp" -ExtraLibs @
 # zeta_term
 if (Build-Binary -Name "zeta_term" -MainSrc "src\term\main.cpp") {
     $Built += "zeta_term"
+}
+
+# zeta-lsp
+$LspSrcs = @(
+    "lsp\zeta-lsp.cpp",
+    "lsp\transport.cpp",
+    "lsp\builtins.cpp",
+    "lsp\analyzer.cpp",
+    "src\lexer\lexer.cpp",
+    "src\parser\parser.cpp",
+    "src\core\valor_zeta.cpp",
+    "src\core\errores.cpp",
+    "src\core\estadisticas.cpp"
+)
+if (Build-Binary -Name "zeta-lsp" -MainSrc $LspSrcs[0] -ExtraSrcs $LspSrcs[1..($LspSrcs.Count-1)]) {
+    $Built += "zeta-lsp"
 }
 
 Pop-Location

@@ -1,6 +1,7 @@
 #pragma once
 #include "zeta/parser.hpp"
 #include "zeta/valor_zeta.hpp"
+#include "zeta/arena.hpp"
 #include "deps/json.hpp"
 #include <memory>
 #include <string>
@@ -13,12 +14,14 @@
 namespace zeta {
 
 struct TablaSimbolos {
-    std::shared_ptr<TablaSimbolos> padre;
+    TablaSimbolos* padre = nullptr;  // Borrowed reference — always outlives child
     std::map<std::string, ValorZeta> variables;
 
     TablaSimbolos() = default;
-    explicit TablaSimbolos(std::shared_ptr<TablaSimbolos> parent)
+    explicit TablaSimbolos(TablaSimbolos* parent)
         : padre(parent) {}
+    explicit TablaSimbolos(std::shared_ptr<TablaSimbolos> parent)
+        : padre(parent.get()) {}
 
     void definir(const std::string& nombre, const ValorZeta& valor) {
         variables[nombre] = valor;
@@ -82,6 +85,10 @@ private:
     std::vector<RutaRegistrada> rutas_registradas_;
     std::map<std::string, std::shared_ptr<ClassDef>> clases_definidas_;
     ValorZeta this_actual_;
+
+    // Arena allocator for temporary values during expression evaluation.
+    // Reset after each top-level statement for deterministic memory reclamation.
+    Arena valor_arena_;
 
     ValorZeta evaluar(const NodoAST& nodo);
     ValorZeta evaluar_variable(const NodoAST& nodo);

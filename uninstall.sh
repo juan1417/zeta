@@ -4,6 +4,7 @@
 # Usage:
 #   ./uninstall.sh              # Uninstall from /usr/local
 #   ./uninstall.sh /home/user/.local  # Uninstall from custom prefix
+#   ./uninstall.sh --help       # Show help
 
 set -e
 
@@ -17,9 +18,20 @@ info()  { echo -e "${BLUE}[INFO]${NC} $1"; }
 ok()    { echo -e "${GREEN}[OK]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
 
+# Parse arguments
+if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
+    echo -e "${BLUE}Zeta Language Uninstaller${NC}"
+    echo
+    echo "Uso: ./uninstall.sh [prefix]"
+    echo
+    echo "Ejemplos:"
+    echo "  ./uninstall.sh                     Desinstalar de /usr/local"
+    echo "  ./uninstall.sh ~/.local            Desinstalar de ~/.local"
+    exit 0
+fi
+
 PREFIX="${1:-${PREFIX:-/usr/local}}"
 BIN_DIR="${PREFIX}/bin"
-LIB_DIR="${PREFIX}/share/zeta"
 ZETA_DIR="${PREFIX}/share/zeta"
 
 echo -e "${BLUE}=== Zeta Language Uninstaller ===${NC}"
@@ -28,7 +40,7 @@ info "Install prefix: ${PREFIX}"
 
 # Remove binaries
 info "Removing binaries..."
-for bin in zeta zeta_server zeta_dashboard zeta_term; do
+for bin in zeta zeta_server zeta_dashboard zeta_term zeta-lsp; do
     if [ -f "${BIN_DIR}/${bin}" ]; then
         rm -f "${BIN_DIR}/${bin}"
         ok "  Removed ${BIN_DIR}/${bin}"

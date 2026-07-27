@@ -10,7 +10,7 @@
     "view_github": "View on GitHub &rarr;"
   },
   "hero": {
-    "eyebrow": "v0.1.1 — MIT License",
+    "eyebrow": "v0.2.0 — MIT License",
     "title": "Analyze data.<br><span>Transform ideas.</span>",
     "sub": "Zeta is a data analysis and transformation language with Rust/Python hybrid syntax, native C++20 engine, and renderers for dashboard and terminal.",
     "cta_install": "Install",
@@ -32,6 +32,8 @@
     "syntax_desc": "Python familiarity with Rust robustness. Variables with <code>$</code>, collections with <code>&lt;&gt;</code>, and a dynamic type system with 15 value types.",
     "engine_title": "C++20 engine",
     "engine_desc": "High-performance interpreter with no GC. Complete pipeline: Lexer &rarr; Parser &rarr; AST &rarr; Interpreter.",
+    "memory_title": "Rust-style memory",
+    "memory_desc": "Arena allocator for temporaries, inline values for NUM/BOOL (0 heap), and deterministic cleanup without GC pauses.",
     "dataframes_title": "Native DataFrames",
     "dataframes_desc": "Load CSV with <code>load_csv</code>, access columns with <code>$data:sales</code>, and transform data without external dependencies.",
     "errors_title": "Errors and null as data",

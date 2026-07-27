@@ -1,0 +1,85 @@
+# tests/test_cleaning.zl
+# Tests para funciones de limpieza de datos
+
+print("=== Test Data Cleaning ===")
+
+# Datos de prueba
+$df = {
+    "nombre": <"Ana", "Bob", "Cat", "Dan", "Eve", "Bob", "Ana">,
+    "edad": <25, 30, null, 28, 42, 30, 25>,
+    "depto": <"IT", "IT", "RRHH", "IT", "RRHH", "IT", "IT">,
+    "score": <8.5, 7.0, 9.0, 8.0, 6.5, 7.0, 8.5>
+}
+print("DataFrame original:")
+print($df)
+
+# --- Test 1: drop_duplicates ---
+print("\n=== 1. drop_duplicates ===")
+$sin_dups = drop_duplicates($df)
+print($sin_dups)
+
+# --- Test 2: rename ---
+print("\n=== 2. rename ===")
+$renombrado = rename($df, "depto", "departamento")
+info($renombrado)
+
+# --- Test 3: select_cols ---
+print("\n=== 3. select_cols ===")
+$seleccion = select_cols($df, <"nombre", "score">)
+print($seleccion)
+
+# --- Test 4: drop_cols ---
+print("\n=== 4. drop_cols ===")
+$sin_score = drop_cols($df, <"score">)
+print($sin_score)
+
+# --- Test 5: fillna ---
+print("\n=== 5. fillna ===")
+$v = <1, null, 3, null, 5>
+print("Original:", $v)
+print("mean:", fillna($v, "mean"))
+print("median:", fillna($v, "median"))
+print("ffill:", fillna($v, "ffill"))
+print("bfill:", fillna($v, "bfill"))
+print("zero:", fillna($v, "zero"))
+
+# --- Test 6: replace_val ---
+print("\n=== 6. replace_val ===")
+$reemplazado = replace_val($df, "depto", "IT", "Tecnologia")
+print($reemplazado)
+
+# --- Test 7: clip ---
+print("\n=== 7. clip ===")
+$scores = <5, 10, 15, 20, 25, 30, 100, -10>
+print("Original:", $scores)
+print("clip(0, 50):", clip($scores, 0, 50))
+
+# --- Test 8: trim ---
+print("\n=== 8. trim ===")
+$datos = <10, 12, 14, 16, 18, 100>
+print("Original:", $datos)
+print("trim(2):", trim($datos, 2))
+
+# --- Test 9: normalize ---
+print("\n=== 9. normalize ===")
+$valores = <10, 20, 30, 40, 50>
+print("Original:", $valores)
+print("normalize:", normalize($valores))
+
+# --- Test 10: standardize ---
+print("\n=== 10. standardize ===")
+print("Original:", $valores)
+print("standardize:", standardize($valores))
+
+# --- Ejemplo práctico ---
+print("\n=== Ejemplo práctico: pipeline de limpieza ===")
+$ventas = load_csv("datos.csv")
+print("Original:")
+info($ventas)
+
+# Pipeline
+$ventas = rename($ventas, "mes", "month")
+print("Después de rename:")
+info($ventas)
+
+print("\n=== OK - Todos los tests de limpieza pasaron ===")
