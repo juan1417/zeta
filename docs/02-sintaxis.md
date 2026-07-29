@@ -1,6 +1,70 @@
 # 2. Sintaxis
 
-Este documento describe la **gramática completa** de Zeta, token por token, con el porqué de cada decisión.
+## Tabla de Contenidos
+
+- [2.1. Estructura de un archivo `.zl`](#21-estructura-de-un-archivo-zl)
+- [2.2. Comentarios](#22-comentarios)
+- [2.3. Literales](#23-literales)
+- [2.4. Variables: el sigil `$`](#24-variables-el-sigil-)
+- [2.5. Asignación](#25-asignación)
+- [2.6. Operadores](#26-operadores)
+- [2.7. Vectores `<>`](#27-vectores-)
+- [2.8. Matrices `<<>>`](#28-matrices-)
+- [2.9. Diccionarios `{}`](#29-diccionarios-)
+- [2.10. Indexado y acceso](#210-indexado-y-acceso)
+- [2.11. Namespace `::`](#211-namespace-)
+- [2.12. Funciones: sintaxis de llamada](#212-funciones-sintaxis-de-llamada)
+- [2.13. Operador ternario `? :`](#213-operador-ternario-)
+- [2.14. Estructuras de control](#214-estructuras-de-control)
+- [2.15. Definición de funciones: `fn`](#215-definición-de-funciones-fn)
+- [2.16. Imports: `include`](#216-imports-include)
+- [2.17. Exposición: `export`](#217-exposición-export)
+- [2.18. Print: `print(...)`](#218-print-print)
+- [2.19. Tokens reservados (keywords)](#219-tokens-reservados-keywords)
+
+---
+
+## Resumen Rápido
+
+### Literales
+
+| Tipo | Sintaxis | Ejemplo | Tipo Interno |
+|------|----------|---------|--------------|
+| Número | Dígitos, opcional `.` | `42`, `3.14`, `0.5` | `NUM` |
+| Número (separador miles) | Dígitos con `,` cada 3 | `1,000`, `1,000,000` | `NUM` |
+| Número (científico) | Notación `e`/`E` con `+`/`-` | `1.5e3`, `2.5e-3`, `1E10` | `NUM` |
+| Cadena | `"..."` con escapes `\n \t \" \\ \r` | `"hola\nmundo"` | `STR` |
+| Booleano | `true` / `false` | `true` | `BOOL` |
+| Nulo | `null` | `null` | `NUM` con valor `quiet NaN` |
+| Vector | `<v1, v2, ...>` | `<1, 2, 3>` | `VEC` |
+| Matriz | `<<f1, f2, ...>>` (filas como vectores) | `<<1, 2>, <3, 4>>` | `MATRIZ` |
+| Diccionario | `{"clave": valor, ...}` | `{"a": 1, "b": 2}` | `DICT` |
+
+### Operadores
+
+| Categoría | Operadores | Descripción |
+|-----------|------------|-------------|
+| **Aritméticos** | `+` `-` `*` `/` `%` | Suma, resta, multiplicación, división, módulo |
+| **Comparación** | `==` `!=` `>` `<` `>=` `<=` | Igualdad, desigualdad, orden |
+| **Lógicos** | `&&` `\|\|` `!` | AND, OR, NOT |
+| **Asignación** | `=` | Asignación (no es expresión) |
+| **Propagación** | `?` | Propaga errores después de asignación |
+| **Ternario** | `?` `:` | Expresión condicional inline |
+
+### Precedencia de Operadores (mayor a menor)
+
+| Precedencia | Operador | Descripción |
+|-------------|----------|-------------|
+| 1 (mayor) | `-x` `!x` | Unario |
+| 2 | `*` `/` `%` | Factor |
+| 3 | `+` `-` | Término |
+| 4 | `>` `<` `>=` `<=` | Comparación |
+| 5 | `==` `!=` | Igualdad |
+| 6 | `&&` | Lógico Y |
+| 7 | `\|\|` | Lógico O |
+| 8 (menor) | `?` `:` | Ternario |
+
+---
 
 ## 2.1. Estructura de un archivo `.zl`
 
@@ -21,6 +85,8 @@ fn suma($a, $b) {
 }
 ```
 
+---
+
 ## 2.2. Comentarios
 
 ```zeta
@@ -29,6 +95,8 @@ print(1)  # también después de código
 ```
 
 Los comentarios son **ignorados por el lexer** (no producen tokens). No hay comentarios de bloque `/* */`.
+
+---
 
 ## 2.3. Literales
 
@@ -54,6 +122,8 @@ Los comentarios son **ignorados por el lexer** (no producen tokens). No hay come
 
 Si fuera un tipo separado, cada operación aritmética necesitaría un `if (es_null) return mk_null()` defensivo. Con NaN, el hardware lo hace gratis.
 
+---
+
 ## 2.4. Variables: el sigil `$`
 
 **Todas las variables empiezan con `$`.** Esto es obligatorio, no opcional.
@@ -72,6 +142,8 @@ datos = 10           # ERROR de parseo
 3. **Permite HTML embebido en strings sin escaping**: `"<div>$valor</div>"` se distingue trivialmente.
 4. **Visibilidad en scripts largos**: en un script de 500 líneas, escanear visualmente los `$` encuentra todas las variables de un vistazo.
 
+---
+
 ## 2.5. Asignación
 
 ```zeta
@@ -81,6 +153,8 @@ $df = {"col1": <1, 2, 3>, "col2": <4, 5, 6>}
 ```
 
 La asignación es una **declaración**, no una expresión. Es decir, no puedes hacer `print($x = 5)` (eso sería un error de tipo en tiempo de parseo).
+
+---
 
 ## 2.6. Operadores
 
@@ -96,24 +170,22 @@ La asignación es una **declaración**, no una expresión. Es decir, no puedes h
 
 ### Comparación
 
-| Operador | Significado |
-|----------|-------------|
-| `==` | Igual |
-| `!=` | Distinto |
-| `>` | Mayor que |
-| `<` | Menor que |
-| `>=` | Mayor o igual |
-| `<=` | Menor o igual |
-
-`==` y `!=` funcionan con `num`, `str`, `bool`. `>`, `<`, `>=`, `<=` funcionan con `num` y `str` (orden lexicográfico).
+| Operador | Significado | Tipos aceptados |
+|----------|-------------|-----------------|
+| `==` | Igual | `num`, `str`, `bool` |
+| `!=` | Distinto | `num`, `str`, `bool` |
+| `>` | Mayor que | `num`, `str` (orden lexicográfico) |
+| `<` | Menor que | `num`, `str` (orden lexicográfico) |
+| `>=` | Mayor o igual | `num`, `str` (orden lexicográfico) |
+| `<=` | Menor o igual | `num`, `str` (orden lexicográfico) |
 
 ### Lógicos
 
-| Operador | Significado |
-|----------|-------------|
-| `&&` | Y lógico (ambos `bool`) |
-| `\|\|` | O lógico (ambos `bool`) |
-| `!` | Negación unaria (`!bool`) |
+| Operador | Significado | Tipo requerido |
+|----------|-------------|----------------|
+| `&&` | Y lógico | ambos `bool` |
+| `\|\|` | O lógico | ambos `bool` |
+| `!` | Negación unaria | `bool` |
 
 ### Precedencia (de mayor a menor)
 
@@ -140,6 +212,8 @@ Si `leer_archivo` retorna un `ERR`, la asignación se aborta y el error se propa
 
 Internamente, el parser genera un nodo `PROPAGACION` que envuelve el valor; el intérprete chequea `is_error(val)` y lo retorna sin asignar.
 
+---
+
 ## 2.7. Vectores `<>`
 
 ```zeta
@@ -150,6 +224,8 @@ $concat = <1, 2> + <3, 4>     # <1, 2, 3, 4>
 ```
 
 El lexer maneja la ambigüedad de `<` con la pila `profundidad_coleccion_`: después de un `<<` (matriz), el siguiente `<` se interpreta como inicio de vector. Después de un `=` o `(`, `<` se interpreta como `<` numérico (vector-abre) si le sigue un dígito o `-`; de lo contrario, como operador de comparación.
+
+---
 
 ## 2.8. Matrices `<<>>`
 
@@ -162,6 +238,8 @@ La sintaxis es **`<<` + filas separadas por coma + `>>`**. Cada fila es un vecto
 
 Acceso por índice doble: `$m[fila, columna]`.
 
+---
+
 ## 2.9. Diccionarios `{}`
 
 ```zeta
@@ -170,6 +248,8 @@ $d2 = {"a": 1, "b": 2}
 ```
 
 Las claves son **siempre cadenas** (literales `"..."`). Los valores pueden ser cualquier expresión. Internamente es `std::map<std::string, ValorZeta>` (ordenados alfabéticamente, no `unordered_map`, para serialización determinística).
+
+---
 
 ## 2.10. Indexado y acceso
 
@@ -210,6 +290,8 @@ $altos = $datos[[$datos:ventas > 1000]]   # DataFrame con filas donde ventas > 1
 
 Los corchetes dobles son **filtros booleanos por fila**. Internamente el intérprete itera cada fila, expone las columnas como variables en un scope temporal, evalúa la condición, y construye un nuevo DataFrame con las filas donde la condición es verdadera.
 
+---
+
 ## 2.11. Namespace `::`
 
 ```zeta
@@ -218,6 +300,8 @@ print(statslib::mean($datos))
 ```
 
 El `::` se usa para **acceder a un símbolo dentro de un namespace** (típicamente un módulo importado). Es diferente de `:` (que es para columnas de DataFrame) y `.` (que no existe en Zeta para evitar ambigüedad con decimales en otros lenguajes).
+
+---
 
 ## 2.12. Funciones: sintaxis de llamada
 
@@ -237,6 +321,8 @@ print(round(sqrt(144)))
 ```
 
 Las funciones nativas se llaman **sin keyword** (estilo prefijo, como en C). No hay métodos (`$vec.len()` no funciona; es `len($vec)`). Esto simplifica el parser: `IDENTIFICADOR (` siempre es una llamada.
+
+---
 
 ## 2.13. Operador ternario `? :`
 
@@ -260,6 +346,8 @@ $resultado = is_null($x) ? 0 : $x    # si x es null -> 0, si no -> x (vectorizad
 ```
 
 Si la condición es un `VEC` o `BOOL_VEC`, el ternario se evalúa **elemento a elemento** y devuelve un vector del mismo tamaño.
+
+---
 
 ## 2.14. Estructuras de control
 
@@ -292,6 +380,8 @@ for ($i in range(100)) {
 ```
 
 Ver detalles y semántica de cada uno en [Control de flujo y funciones](./docs/04-control-y-funciones.md).
+
+---
 
 ## 2.15. Definición de funciones: `fn`
 
@@ -327,6 +417,7 @@ print(map($nums, fn($x) { return $x * 10 }))    # <10, 20, 30>
 
 Para llamar a una función almacenada en una variable, usa el nombre **sin sigil** (`f(args)`). La sintaxis `$f[i]` es acceso por índice.
 
+---
 
 ## 2.16. Imports: `include`
 
@@ -346,6 +437,8 @@ print(st::correlation($a, $b))
 
 Ver detalles completos en [Imports y módulos](./docs/06-imports-modulos.md).
 
+---
+
 ## 2.17. Exposición: `export`
 
 ```zeta
@@ -359,6 +452,8 @@ export { mean, stddev }
 
 `export` enumera explícitamente qué nombres del módulo son públicos. Si no hay `export`, todos los nombres nuevos del módulo son públicos (modo "todo es público" por compatibilidad con scripts simples). Ver [Imports](./docs/06-imports-modulos.md).
 
+---
+
 ## 2.18. Print: `print(...)`
 
 ```zeta
@@ -369,24 +464,27 @@ print($x + $y)
 
 `print` acepta múltiples expresiones separadas por coma, las imprime separadas por un espacio, y termina con newline. El resultado es `null`.
 
+---
+
 ## 2.19. Tokens reservados (keywords)
 
 Lista completa de palabras que **no se pueden usar como nombre de variable** (deben ir con `$` y colisionan con keywords):
 
-```
-fn if else for while in return print break continue
-include as export
-true false null
-load_csv plot serve metric dashboard route
-class new this extends
-is_null is_error mean count sum min max stddev
-abs round floor ceil pow sqrt
-len upper lower substr
-reverse sort unique push
-keys values type range
-transpose dot head select
-split join replace find
-map filter reduce
-```
+| Categoría | Keywords |
+|-----------|----------|
+| **Control de flujo** | `fn` `if` `else` `for` `while` `in` `return` `break` `continue` |
+| **Módulos** | `include` `as` `export` |
+| **Literales** | `true` `false` `null` |
+| **I/O y visualización** | `load_csv` `plot` `serve` `metric` `dashboard` `route` |
+| **OOP** | `class` `new` `this` `extends` |
+| **Funciones de verificación** | `is_null` `is_error` |
+| **Estadísticas** | `mean` `count` `sum` `min` `max` `stddev` |
+| **Matemáticas** | `abs` `round` `floor` `ceil` `pow` `sqrt` |
+| **Cadenas** | `len` `upper` `lower` `substr` |
+| **Vectores** | `reverse` `sort` `unique` `push` |
+| **Diccionarios** | `keys` `values` `type` `range` |
+| **Matrices** | `transpose` `dot` `head` `select` |
+| **Cadenas (avanzado)** | `split` `join` `replace` `find` |
+| **Higher-order** | `map` `filter` `reduce` |
 
 Estas son palabras reservadas a nivel lexer: si las escribes sin `$` se interpretan como la función built-in correspondiente. Para usarlas como claves de diccionario, deben ir como cadenas: `{"type": "valor"}` no `{"type": ...}`.

@@ -2,7 +2,39 @@
 
 `zeta_server` es un binario que expone el estado del intérprete Zeta a través de HTTP REST. Usa **Crow** (header-only, basado en Asio) como framework.
 
-## 11.1. Iniciar el servidor
+## Tabla de Contenidos
+
+- [Resumen Rápido](#resumen-rápido)
+- [11.1. Iniciar el Servidor](#111-iniciar-el-servidor)
+- [11.2. Endpoints](#112-endpoints)
+- [11.3. CORS](#113-cors)
+- [11.4. Threading](#114-threading)
+- [11.5. Ejemplo de Uso Programático (Python)](#115-ejemplo-de-uso-programático-python)
+- [11.6. Seguridad](#116-seguridad)
+- [11.7. Códigos de Error HTTP](#117-códigos-de-error-http)
+- [11.8. Lifecycle: State entre Requests](#118-lifecycle-state-entre-requests)
+- [11.9. El Flag `--script`](#119-el-flag---script)
+- [11.10. Rutas Definidas por el Usuario](#1110-rutas-definidas-por-el-usuario)
+- [11.11. Endpoints No Documentados / Deprecated](#1111-endpoints-no-documentados--deprecated)
+- [11.12. Limitaciones Actuales](#1112-limitaciones-actuales)
+
+---
+
+## Resumen Rápido
+
+| Endpoint | Método | Descripción |
+|----------|--------|-------------|
+| `GET /` | GET | UI HTML embebida (Tailwind + Chart.js) |
+| `GET /api/datos` | GET | Variables globales serializadas como JSON |
+| `GET /api/metricas` | GET | KPIs registrados con `metric(nombre, valor)` |
+| `GET /api/dashboard` | GET | Config del dashboard HTML (`DashboardConfig`) |
+| `GET /api/grafo` | GET | SceneSpec activa (consumida por renderers) |
+| `POST /api/run` | POST | Ejecutar código Zeta arbitrario |
+| `GET /u/*` | GET/POST/... | Rutas definidas por el usuario via `route()` |
+
+---
+
+## 11.1. Iniciar el Servidor
 
 ```bash
 ./zeta_server --port 8080
@@ -10,8 +42,10 @@
 
 Flags:
 
-- `--port N`: puerto (default `8080`).
-- `--script archivo.zl`: ejecuta este script al iniciar (carga datos, escenas, etc).
+| Flag | Descripción | Default |
+|------|-------------|---------|
+| `--port N` | Puerto de escucha | `8080` |
+| `--script archivo.zl` | Script a ejecutar al iniciar | — |
 
 Salida esperada:
 
@@ -24,6 +58,8 @@ API:  http://localhost:8080/api/datos
 ```
 
 El servidor corre **multithreaded** (Crow gestiona un thread pool).
+
+---
 
 ## 11.2. Endpoints
 
@@ -139,9 +175,13 @@ Respuesta con error:
 
 con HTTP code 500.
 
+---
+
 ## 11.3. CORS
 
 Todos los endpoints `GET` retornan el header `Access-Control-Allow-Origin: *`. Esto permite que un frontend en otro dominio consuma la API directamente.
+
+---
 
 ## 11.4. Threading
 
@@ -151,7 +191,9 @@ Crow maneja un thread pool. Cada request se procesa en un thread separado. El `I
 
 Si necesitas concurrencia estricta, pon un lock alrededor de `interpreter->ejecutar(...)` en `server_main.cpp`.
 
-## 11.5. Ejemplo de uso programático (Python)
+---
+
+## 11.5. Ejemplo de Uso Programático (Python)
 
 ```python
 import requests
@@ -175,6 +217,8 @@ for m in r.json():
     print(f"{m['nombre']}: {m['valor']}")
 ```
 
+---
+
 ## 11.6. Seguridad
 
 **El servidor no tiene autenticación ni rate limiting**. Cualquiera con acceso al puerto puede ejecutar código arbitrario. Por diseño: es un servidor de desarrollo, no de producción.
@@ -185,7 +229,9 @@ Para producción:
 2. Limitar el `POST /api/run` a localhost o redes internas.
 3. Sanitizar el código antes de ejecutarlo (no hay sandbox).
 
-## 11.7. Códigos de error HTTP
+---
+
+## 11.7. Códigos de Error HTTP
 
 | Código | Cuándo |
 |--------|--------|
@@ -195,7 +241,9 @@ Para producción:
 
 El body de error siempre es `{"error": "mensaje"}`.
 
-## 11.8. Lifecycle: state entre requests
+---
+
+## 11.8. Lifecycle: State entre Requests
 
 El servidor mantiene un único `Interpreter` durante toda su vida. Las variables, métricas, escenas y dashboard definidos en un `POST /api/run` persisten para el siguiente.
 
@@ -208,7 +256,9 @@ curl -X POST http://localhost:8080/api/run -d '{"code": "print($x)"}'
 # output: "42\n"
 ```
 
-## 11.9. El flag `--script`
+---
+
+## 11.9. El Flag `--script`
 
 Si pasas `--script archivo.zl`, el servidor ejecuta ese script al iniciar, antes de empezar a escuchar:
 
@@ -218,9 +268,11 @@ Si pasas `--script archivo.zl`, el servidor ejecuta ese script al iniciar, antes
 
 Esto es útil para **pre-cargar datos y escenas** sin tener que hacer un `POST /api/run` manual.
 
-## 11.10. Rutas definidas por el usuario
+---
 
-Ademas de los 6 endpoints built-in, Zeta permite registrar rutas HTTP propias via la builtin `route()`. Esto te permite construir APIs completas desde un script Zeta sin tocar C++.
+## 11.10. Rutas Definidas por el Usuario
+
+Además de los 6 endpoints built-in, Zeta permite registrar rutas HTTP propias via la builtin `route()`. Esto te permite construir APIs completas desde un script Zeta sin tocar C++.
 
 ### Sintaxis
 
@@ -240,13 +292,15 @@ route("GET", "/api/saludo", mi_handler)
 
 `route(metodo, path, handler)` registra una ruta:
 
-- `metodo`: `"GET"`, `"POST"`, `"PUT"`, `"DELETE"`, o `"PATCH"` (case-sensitive).
-- `path`: debe empezar con `/`.
-- `handler`: una funcion que recibe el request como string JSON y retorna la respuesta.
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `metodo` | string | `"GET"`, `"POST"`, `"PUT"`, `"DELETE"`, o `"PATCH"` (case-sensitive) |
+| `path` | string | Debe empezar con `/` |
+| `handler` | función | Recibe el request como string JSON, retorna la respuesta |
 
-Retorna el numero de rutas registradas hasta ahora (1, 2, 3, ...).
+Retorna el número de rutas registradas hasta ahora (1, 2, 3, ...).
 
-### El request
+### El Request
 
 `$req` es un string JSON serializado (parsealo en el handler o pasalo a una biblioteca JSON). Estructura:
 
@@ -260,21 +314,19 @@ Retorna el numero de rutas registradas hasta ahora (1, 2, 3, ...).
 }
 ```
 
-### La respuesta
+### La Respuesta
 
 El handler debe retornar un dict con tres claves opcionales:
 
-```zeta
-{
-    "status": 200,              # int, default 200
-    "body": "...",              # string | number | null, default null
-    "headers": {"X-Foo": "bar"} # dict, default {}
-}
-```
+| Clave | Tipo | Default | Descripción |
+|-------|------|---------|-------------|
+| `status` | int | `200` | Código de estado HTTP |
+| `body` | string, number o null | `null` | Cuerpo de la respuesta |
+| `headers` | dict | `{}` | Headers HTTP |
 
-Si el handler retorna un string o un numero en vez de un dict, se envuelve automaticamente como `{status: 200, body: <valor>}`.
+Si el handler retorna un string o un número en vez de un dict, se envuelve automáticamente como `{status: 200, body: <valor>}`.
 
-### Exponer las rutas
+### Exponer las Rutas
 
 El server expone todas las rutas registradas bajo el prefijo `/u/`. Internamente:
 
@@ -286,7 +338,7 @@ PUT  /u/api/recurso/1  -> busca ruta PUT /api/recurso/1
 
 Esto evita conflictos con los 6 endpoints built-in (`/api/datos`, `/api/run`, etc).
 
-### Flujo completo
+### Flujo Completo
 
 ```bash
 # 1. Inicia el server
@@ -302,7 +354,7 @@ curl http://localhost:8080/u/api/saludo
 curl -X POST http://localhost:8080/u/api/echo -d '{"x":1}'
 ```
 
-### Ejemplo: API de estadisticas
+### Ejemplo: API de Estadísticas
 
 ```zeta
 # stats_api.zl
@@ -366,37 +418,49 @@ curl http://localhost:8080/u/api/stats/count
 
 `route()` retorna un error (en vez de registrar) si:
 
-- El metodo no es uno de `GET/POST/PUT/DELETE/PATCH`.
-- El path no empieza con `/`.
-- El handler no es una funcion (es un numero, string, etc).
+| Condición | Error |
+|-----------|-------|
+| Método no es `GET/POST/PUT/DELETE/PATCH` | `"metodo invalido 'FETCH'"` |
+| Path no empieza con `/` | `"path debe empezar con /"` |
+| Handler no es una función | `"handler debe ser una funcion"` |
 
 ```zeta
-# Errores tipicos:
+# Errores típicos:
 route("FETCH", "/x", $h)        # Error: "metodo invalido 'FETCH'"
 route("GET", "no-slash", $h)    # Error: "path debe empezar con /"
 route("GET", "/x", 42)          # Error: "handler debe ser una funcion"
 ```
 
-### Limitaciones
+### Limitaciones de `route()`
 
-- **Sin path parameters**: `/api/users/$id` no funciona como plantilla. Si necesitas eso, parsea `path` en el handler con un split.
-- **Sin regex matching**: solo match exacto.
-- **Sin streaming**: la respuesta se envia completa.
-- **Sin middleware**: no hay hooks `before_request` / `after_request`. Si los necesitas, agrega un `CROW_ROUTE` adicional en `server_main.cpp` que se ejecute primero.
-- **Prefijo `/u/`**: las rutas user-defined viven bajo `/u/`. Si quieres cambiarlo, edita el `CROW_ROUTE` en `server_main.cpp`.
+| Limitación | Descripción |
+|------------|-------------|
+| Sin path parameters | `/api/users/$id` no funciona como plantilla. Parsea `path` con un split |
+| Sin regex matching | Solo match exacto |
+| Sin streaming | La respuesta se envía completa |
+| Sin middleware | No hay hooks `before_request` / `after_request`. Agrega un `CROW_ROUTE` adicional en `server_main.cpp` |
+| Prefijo `/u/` | Las rutas user-defined viven bajo `/u/`. Edita el `CROW_ROUTE` en `server_main.cpp` para cambiarlo |
 
-## 11.11. Endpoints no documentados / deprecated
+---
 
-- `GET /api/health` — no existe, pero es trivial agregar.
-- `GET /api/version` — no existe.
+## 11.11. Endpoints No Documentados / Deprecated
+
+| Endpoint | Estado |
+|----------|--------|
+| `GET /api/health` | No existe, pero es trivial agregar |
+| `GET /api/version` | No existe |
 
 Si los necesitas, agrégalos a `src/server_main.cpp`.
 
-## 11.12. Limitaciones actuales
+---
 
-- **Sin WebSockets**: las actualizaciones en vivo requieren polling.
-- **Sin upload de archivos**: no hay endpoint para subir CSVs (hay que usar `load_csv` con una ruta local).
-- **Sin rate limiting**: ver §11.6.
-- **Sin autenticación**: ver §11.6.
+## 11.12. Limitaciones Actuales
+
+| Limitación | Descripción |
+|------------|-------------|
+| Sin WebSockets | Las actualizaciones en vivo requieren polling |
+| Sin upload de archivos | No hay endpoint para subir CSVs (usa `load_csv` con una ruta local) |
+| Sin rate limiting | Ver §11.6 |
+| Sin autenticación | Ver §11.6 |
 
 Estas son limitaciones conscientes para mantener el server simple. Si las necesitas, son ~50 líneas de código cada una.

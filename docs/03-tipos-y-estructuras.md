@@ -1,6 +1,88 @@
-# 3. Tipos de datos y estructuras
+# 3. Tipos de Datos y Estructuras
 
-Zeta tiene un **sistema de tipos dinámico** con 15 tipos de primera clase, todos accesibles vía `type(x)` y serializables a JSON. Los valores son inmutables (las asignaciones reemplazan, no mutan) excepto donde se indique lo contrario.
+## Tabla de Contenidos
+
+- [3.1. El tipo `ValorZeta`](#31-el-tipo-valorzeta)
+- [3.2. Tabla de tipos](#32-tabla-de-tipos)
+- [3.3. Booleanos](#33-booleanos)
+- [3.4. Números y `null`](#34-números-y-null)
+- [3.5. Cadenas](#35-cadenas)
+- [3.6. Vectores](#36-vectores)
+- [3.7. Matrices](#37-matrices)
+- [3.8. Diccionarios](#38-diccionarios)
+- [3.9. DataFrames: el tipo estrella](#39-dataframes-el-tipo-estrella)
+- [3.10. Errores como datos](#310-errores-como-datos)
+- [3.11. Tipos compuestos: GRAFICO, METRICA, DASHBOARD, SCENE, FUNC](#311-tipos-compuestos-grafico-metrica-dashboard-scene-func)
+- [3.12. Funciones como valores](#312-funciones-como-valores)
+- [3.13. `type()` y serialización](#313-type-y-serialización)
+- [3.14. Objetos (programación orientada a objetos)](#314-objetos-programación-orientada-a-objetos)
+- [3.15. Coerción de tipos](#315-coerción-de-tipos)
+- [3.16. `type()` — inspección de tipos](#316-type---inspección-de-tipos)
+
+---
+
+## Resumen Rápido
+
+### Tabla de Tipos
+
+| Enum | Nombre (`type()`) | Representación interna | Ejemplo literal |
+|------|-------------------|------------------------|-----------------|
+| `BOOL` | `"bool"` | `bool_val` | `true`, `false` |
+| `NUM` | `"num"` | `double num_val` (NaN = null) | `42`, `3.14`, `null` |
+| `STR` | `"str"` | `string str_val` | `"hola"` |
+| `VEC` | `"vec"` | `vector<double> vec_val` | `<1, 2, 3>` |
+| `BOOL_VEC` | `"bool_vec"` | `vector<bool> bool_vec_val` | `is_null(<1, 2>)` |
+| `STR_VEC` | `"str_vec"` | `vector<string> str_vec_val` | `split("a,b", ",")` |
+| `MATRIZ` | `"matriz"` | `vector<vector<double>>` | `<<1, 2>, <3, 4>>` |
+| `DICT` | `"dict"` | `map<string, ValorZeta>` | `{"a": 1}` |
+| `DF` | `"df"` | `DataFrame` (ver §3.9) | `load_csv("...")` |
+| `ERR` | `"err"` | `ErrorZeta{tipo, mensaje, linea}` | `mk_err(...)` |
+| `GRAFICO` | `"grafico"` | `GraficoConfig{tipo, titulo, eje_x, eje_y, bins}` | `plot(...)` |
+| `METRICA` | `"metrica"` | `MetricaKPI{nombre, valor}` | `metric(...)` |
+| `DASHBOARD` | `"dashboard"` | `DashboardConfig{titulo, autor, elementos}` | `dashboard(...)` |
+| `SCENE` | `"scene"` | `shared_ptr<SceneSpec>` | `scene(...)` |
+| `FUNC` | `"func"` | `{nombre, params, cuerpo, cierre}` | `fn` declarada |
+
+### Resultado de `type()`
+
+| Expresión | Resultado |
+|-----------|-----------|
+| `type(42)` | `"num"` |
+| `type("hola")` | `"str"` |
+| `type(true)` | `"bool"` |
+| `type(<1, 2>)` | `"vec"` |
+| `type(<<1, 2>, <3, 4>>)` | `"matriz"` |
+| `type({"a": 1})` | `"dict"` |
+| `type(load_csv("datos.csv"))` | `"df"` |
+| `type(scene("t"))` | `"scene"` |
+| `type(new Counter())` | `"objeto"` |
+| `type(null)` | `"num"` |
+
+### Comportamiento de `null` (quiet NaN)
+
+| Operación | Resultado |
+|-----------|-----------|
+| `null + 5` | `null` (NaN se propaga) |
+| `null * 2` | `null` |
+| `5 / 0` | `null` (división por 0 → NaN) |
+| `null == null` | `false` (NaN nunca es igual a sí mismo) |
+| `is_null(null)` | `true` (chequea `x != x`) |
+
+### Coerción de tipos
+
+| Jerarquía | Descripción |
+|-----------|-------------|
+| `bool` → `num` → `str` | Jerarquía de coerción automática |
+
+| Operación | Resultado |
+|-----------|-----------|
+| `true + 10` | `11` (bool → num: true=1, false=0) |
+| `false + 10` | `10` |
+| `42 + " items"` | `"42 items"` (num → str) |
+| `true + " value"` | `"true value"` (bool → str) |
+| `"a" + 1` | `"a1"` (num → str para concat) |
+
+---
 
 ## 3.1. El tipo `ValorZeta`
 
@@ -14,6 +96,8 @@ enum Tipo {
     FUNC
 };
 ```
+
+---
 
 ## 3.2. Tabla de tipos
 
@@ -33,7 +117,9 @@ enum Tipo {
 | `METRICA` | `"metrica"` | `MetricaKPI{nombre, valor}` | `metric(...)` |
 | `DASHBOARD` | `"dashboard"` | `DashboardConfig{titulo, autor, elementos}` | `dashboard(...)` |
 | `SCENE` | `"scene"` | `shared_ptr<SceneSpec>` | `scene(...)` |
-| `FUNC` | `"func"` | `{nombre, params, cuerpo, cierre}` | `fn` declarada |
+| `FUNC` | `"func"` | `{nombre, params, cuerpo (NodoAST*), cierre}` | `fn` declarada |
+
+---
 
 ## 3.3. Booleanos
 
@@ -43,6 +129,8 @@ enum Tipo {
 $es_mayor = $edad >= 18
 $es_valido = !is_null($valor)
 ```
+
+---
 
 ## 3.4. Números y `null`
 
@@ -65,6 +153,8 @@ if (is_null($resultado)) {
 }
 ```
 
+---
+
 ## 3.5. Cadenas
 
 `std::string` UTF-8 (no hay tipo separado para char). Operador `+` concatena:
@@ -76,6 +166,8 @@ $completo = $nombre + " " + $version    # "Zeta 0.1.0"
 ```
 
 Métodos asociados: `len`, `upper`, `lower`, `substr`, `split`, `join`, `replace`, `find`, `reverse`. Ver [Funciones nativas](./docs/05-funciones-nativas.md).
+
+---
 
 ## 3.6. Vectores
 
@@ -105,6 +197,8 @@ for ($x in $nums) {
 }
 ```
 
+---
+
 ## 3.7. Matrices
 
 `std::vector<std::vector<double>>` (rectangulares, no jagged). Indexado con `[]` y coma:
@@ -120,6 +214,8 @@ print($m[1, 0])       # 4
 
 Funciones: `transpose($m)`, `dot($a, $b)` (producto punto de dos vectores).
 
+---
+
 ## 3.8. Diccionarios
 
 `std::map<std::string, ValorZeta>`. **Ordenados** alfabéticamente (no `unordered_map`) para serialización determinística.
@@ -133,6 +229,8 @@ print(values($d))      # <true, "Zeta", 0.1>
 ```
 
 Nota: **no hay sintaxis de acceso por clave** en Zeta. Los diccionarios se usan principalmente como **namespace de módulos** (`statslib::mean(...)` es acceso a `statslib`'s dict). Para acceso dinámico, itera con `keys` y `values`.
+
+---
 
 ## 3.9. DataFrames: el tipo estrella
 
@@ -205,6 +303,8 @@ print(head($df, 3))       # primeras 3 filas (otro DataFrame)
 print(keys($df))          # nombres de columnas
 ```
 
+---
+
 ## 3.10. Errores como datos
 
 `ErrorZeta` es un struct `{string tipo, string mensaje, int linea}`. Se crean con `mk_err("tipo", "msg", linea)` y se verifican con `is_error(x)`.
@@ -219,6 +319,8 @@ if (is_error($e)) {
 
 Los errores **se propagan con `?`** y **se pueden almacenar en vectores/Dicts** para análisis posterior. Ver [Errores y null como datos](./docs/08-errores-null.md).
 
+---
+
 ## 3.11. Tipos compuestos: GRAFICO, METRICA, DASHBOARD, SCENE, FUNC
 
 Estos tipos son **contenedores de configuración** que el lenguaje usa para comunicarse con el exterior (HTTP API, renderers).
@@ -232,6 +334,8 @@ Estos tipos son **contenedores de configuración** que el lenguaje usa para comu
 | `FUNC` | `{nombre, params, cuerpo (NodoAST*), cierre}` | `fn` declarada | Llamadas a funciones de usuario |
 
 `SCENE` es el más importante: ver [Escenas y visualización](./docs/09-escenas-visualizacion.md).
+
+---
 
 ## 3.12. Funciones como valores
 
@@ -259,7 +363,9 @@ $duplicado = map($nums, doble)   # <2, 4, 6, 8>
 
 Ver `map`, `filter`, `reduce` en [Funciones nativas](./docs/05-funciones-nativas.md).
 
-## 3.13. `type(x)` y serialización
+---
+
+## 3.13. `type()` y serialización
 
 ```zeta
 print(type(42))         # "num"
@@ -270,9 +376,11 @@ print(type(scene("t")))              # "scene"
 print(type(new Counter()))           # "objeto"
 ```
 
-## 3.14. Objetos (programacion orientada a objetos)
+---
 
-`OBJ` es un tipo compuesto que representa una instancia de una clase definida por el usuario. Tiene dos partes: una referencia a la clase (`clase`) y un mapa de campos (`campos`) accesibles via `$obj.campo` o via metodos.
+## 3.14. Objetos (programación orientada a objetos)
+
+`OBJ` es un tipo compuesto que representa una instancia de una clase definida por el usuario. Tiene dos partes: una referencia a la clase (`clase`) y un mapa de campos (`campos`) accesibles via `$obj.campo` o via métodos.
 
 ```zeta
 class Counter {
@@ -289,7 +397,9 @@ print($c.inc())        # 1.000000
 print($c.count)        # 1.000000
 ```
 
-Los objetos se crean con `new Nombre(args)`. Soportan herencia simple via `class Hija extends Padre`. Ver [4.13 Programacion orientada a objetos](./04-control-y-funciones.md#413-programacion-orientada-a-objetos) para la referencia completa.
+Los objetos se crean con `new Nombre(args)`. Soportan herencia simple via `class Hija extends Padre`. Ver [4.13 Programación orientada a objetos](./04-control-y-funciones.md#413-programacion-orientada-a-objetos) para la referencia completa.
+
+---
 
 ## 3.15. Coerción de tipos
 
@@ -311,6 +421,8 @@ En comparaciones, los booleanos se convierten a num:
 print(3 > true)      # true  (3 > 1)
 print(2 == false)    # false (2 == 0)
 ```
+
+---
 
 ## 3.16. `type()` — inspección de tipos
 

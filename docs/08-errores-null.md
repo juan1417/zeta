@@ -1,10 +1,44 @@
-# 8. Errores y null como datos
+# 8. Errores y Null como Datos
 
 Zeta trata los **errores como valores**, no como excepciones. Esto tiene tres consecuencias poderosas:
 
 1. **Los errores son serializables** (a JSON, a disco, por red).
 2. **Los errores se pueden almacenar** en vectores, DataFrames, etc.
 3. **La propagación con `?` es explícita y opcional** — puedes inspeccionar errores manualmente.
+
+## Tabla de Contenidos
+
+- [Resumen Rápido](#resumen-rápido)
+- [8.1. Crear errores: `mk_err`](#81-crear-errores-mk_err)
+  - [Tipos de error comunes](#tipos-de-error-comunes)
+- [8.2. Detectar errores: `is_error`](#82-detectar-errores-is_error)
+- [8.3. Propagación con `?`](#83-propagación-con-)
+  - [Propagación encadenada](#propagación-encadenada)
+- [8.4. Errores en vectores y DataFrames](#84-errores-en-vectores-y-dataframes)
+- [8.5. Errores en el servidor HTTP](#85-errores-en-el-servidor-http)
+- [8.6. `null` vs `ERR`](#86-null-vs-err)
+- [8.7. `is_null` en diferentes tipos](#87-is_null-en-diferentes-tipos)
+- [8.8. `fill_null($valor, $defecto)` — reemplazar nulos](#88-fill_null-valor-defecto--reemplazar-nulos)
+- [8.9. Crear nulls explícitamente: `mk_null_val()`](#89-crear-nulls-explícitamente-mk_null_val)
+- [8.10. Conversión entre `null` y `ERR`](#810-conversión-entre-null-y-err)
+- [8.11. Operaciones con null](#811-operaciones-con-null)
+- [8.12. Ventajas del modelo](#812-ventajas-del-modelo)
+- [8.13. Cuándo **no** usar este modelo](#813-cuándo-no-usar-este-modelo)
+
+## Resumen Rápido
+
+| Concepto | Representación | Cuándo usar |
+|----------|----------------|-------------|
+| `null` (NaN) | `double` con valor NaN | "Falta un valor" (dato ausente, no aplica, no se midió) |
+| `ERR` | Struct con tipo, mensaje, línea | "Algo falló" (error de programación, input inválido, I/O) |
+| `mk_err($tipo, $msg)` | `ValorZeta` de tipo ERR | Crear un error explícitamente |
+| `is_error($x)` | `bool` | Verificar si un valor es error |
+| `?` (post-asignación) | Propagación | Retornar error al llamante automáticamente |
+| `is_null($x)` | `bool` o `bool_vec` | Verificar si un valor es null |
+| `fill_null($v, $def)` | valor o vec | Reemplazar nulls por un valor por defecto |
+| `mk_null_val()` | `null` | Producir null explícitamente |
+
+---
 
 ## 8.1. Crear errores: `mk_err`
 
@@ -40,6 +74,8 @@ Convención recomendada (no impuesta):
 | `"network"` | Error de red (cliente HTTP user-defined) |
 | `"scene"` | Error de escena (no hay scene activa, nodo inválido) |
 
+---
+
 ## 8.2. Detectar errores: `is_error`
 
 ```zeta
@@ -51,6 +87,8 @@ if (is_error($resultado)) {
 ```
 
 `is_error(x)` devuelve `true` si el valor es un `ERR`.
+
+---
 
 ## 8.3. Propagación con `?`
 
@@ -84,6 +122,8 @@ fn procesar_datos() {
 
 Si cualquiera de las llamadas retorna un error, la función `procesar_datos` retorna ese error inmediatamente. El llamante puede chequear con `is_error`.
 
+---
+
 ## 8.4. Errores en vectores y DataFrames
 
 Como los errores son valores, se pueden almacenar en colecciones:
@@ -102,6 +142,8 @@ for ($i in range(len($errores))) {
 
 Esto es útil para **batches de operaciones**: ejecutas N transformaciones, recoges los errores, y al final los reportas en bulk.
 
+---
+
 ## 8.5. Errores en el servidor HTTP
 
 Cuando `zeta_server` recibe un `POST /api/run` con código que produce un error, retorna:
@@ -113,6 +155,8 @@ Cuando `zeta_server` recibe un `POST /api/run` con código que produce un error,
 ```
 
 con HTTP code 500. Los errores de parseo (código inválido) también retornan 500 con el mensaje de excepción.
+
+---
 
 ## 8.6. `null` vs `ERR`
 
@@ -137,6 +181,8 @@ if (is_error($df)) {
 }
 ```
 
+---
+
 ## 8.7. `is_null` en diferentes tipos
 
 `is_null()` funciona con todos los tipos de Zeta:
@@ -149,6 +195,8 @@ print(is_null(<1, null, 3>))    # <false, true, false>  (bool_vec)
 print(is_null(<"a", "", "c">))  # <false, true, false>  (str_vec)
 print(is_null(load_csv("x")))   # false (un DataFrame nunca es null)
 ```
+
+---
 
 ## 8.8. `fill_null($valor, $defecto)` — reemplazar nulos
 
@@ -175,6 +223,8 @@ $mask = is_null($datos:ventas)         # bool_vec
 $limpio = $datos[[!$mask]]             # filtra filas donde NO es null
 ```
 
+---
+
 ## 8.9. Crear nulls explícitamente: `mk_null_val()`
 
 En algunos contextos, necesitas producir un null explícitamente (e.g., en un map):
@@ -189,6 +239,8 @@ fn safe_sqrt($x) {
 
 print(map(<4, -1, 9, -16>, safe_sqrt))    # <2, null, 3, null>
 ```
+
+---
 
 ## 8.10. Conversión entre `null` y `ERR`
 
@@ -205,7 +257,11 @@ fn check_not_null($x) {
 
 Si tienes un `ERR` y quieres "aplanarlo" a null, no hay un builtin; tienes que chequear con `is_error` y retornar null manualmente.
 
-## 8.11. Tabla de operadores sobre null
+---
+
+## 8.11. Operaciones con null
+
+### Tabla de operadores sobre null
 
 | Operación | Resultado con null |
 |-----------|---------------------|
@@ -221,7 +277,22 @@ Si tienes un `ERR` y quieres "aplanarlo" a null, no hay un builtin; tienes que c
 | `is_error(null)` | false |
 | `null ? "x" : "y"` | error de tipo (ternario requiere bool) |
 
+### Tabla de funciones con null
+
+| Función | Comportamiento con null |
+|---------|------------------------|
+| `sum($vec)` | Ignora nulls, suma el resto |
+| `mean($vec)` | Ignora nulls, promedia el resto |
+| `count($vec)` | Cuenta solo valores no nulos |
+| `min($vec)` / `max($vec)` | Ignora nulls |
+| `stddev($vec)` | Ignora nulls |
+| `sort($vec)` | Los nulls quedan al final |
+| `fill_null($vec, $def)` | Reemplaza nulls por defecto |
+| `is_null($vec)` | Devuelve `bool_vec` elemento a elemento |
+
 **La asimetría de `==` y `!=` con null** es intencional y refleja el estándar IEEE 754. Si necesitas chequear null, usa `is_null(x)`, no `x == null`.
+
+---
 
 ## 8.12. Ventajas del modelo
 
@@ -231,8 +302,10 @@ Si tienes un `ERR` y quieres "aplanarlo" a null, no hay un builtin; tienes que c
 4. **Sin overhead en el happy path**: un `?` se compila a una comparación y un jump; no hay unwinding.
 5. **Testeable**: puedes mockear errores fácilmente (crear un `ERR` directamente en lugar de provocar la condición).
 
+---
+
 ## 8.13. Cuándo **no** usar este modelo
 
 - **Loops críticos con muchos errores esperados**: si esperas que el 50% de las operaciones fallen, considera un patrón diferente (e.g., `try_or_default(x, 0)`).
 - **Stack traces**: no hay stack traces (solo la línea del error). Si necesitas debuggear errores profundos, añade contexto manualmente al `mensaje`.
-- **Errores de memoria**: el intérprete no atrapa segfaults. Un null dereference o un error de C++ crashea el proceso. Usa el wrapper `zeta_server` para隔离 el proceso.
+- **Errores de memoria**: el intérprete no atrapa segfaults. Un null dereference o un error de C++ crashea el proceso. Usa el wrapper `zeta_server` para aislar el proceso.

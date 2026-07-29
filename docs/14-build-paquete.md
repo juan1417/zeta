@@ -1,12 +1,46 @@
-# 14. Build y empaquetado
+# 14. Build y Empaquetado
 
-## 14.1. `build.sh`: compilar todo o por partes
+---
+
+## Índice
+
+- [14.1. Resumen rápido](#141-resumen-rápido)
+- [14.2. `build.sh`: compilar todo o por partes](#142-buildsh-compilar-todo-o-por-partes)
+- [14.3. Compilar las dependencias externas](#143-compilar-las-dependencias-externas)
+- [14.4. Compilar la librería de ejemplo](#144-compilar-la-librería-de-ejemplo)
+- [14.5. `test_e2e.sh`: test end-to-end](#145-test_e2esh-test-end-to-end)
+- [14.6. `package.sh`: crear distribución](#146-packagesh-crear-distribución)
+- [14.7. Compilación cruzada](#147-compilación-cruzada)
+- [14.8. CMake (alternativa)](#148-cmake-alternativa)
+- [14.9. CI/CD](#149-cicd)
+- [14.10. Debug builds](#1410-debug-builds)
+- [14.11. Sistema de versiones](#1411-sistema-de-versiones)
+- [14.12. Próximos pasos del build](#1412-próximos-pasos-del-build)
+
+---
+
+## 14.1. Resumen rápido
+
+| Comando | Descripción |
+|---------|-------------|
+| `./build.sh all` | Compila todos los binarios |
+| `./build.sh cli` | Solo el CLI (`zeta`) |
+| `./build.sh server` | Solo el server HTTP (`zeta_server`) |
+| `./build.sh dashboard` | Solo el renderer OpenGL (`zeta_dashboard`) |
+| `./build.sh term` | Solo el renderer ANSI (`zeta_term`) |
+| `./build.sh clean` | Elimina binarios compilados |
+| `./test_e2e.sh` | Ejecuta tests end-to-end |
+| `./package.sh [version]` | Crea distribución comprimida |
+
+---
+
+## 14.2. `build.sh`: compilar todo o por partes
 
 ```bash
 ./build.sh all
 ```
 
-Targets disponibles:
+### Build targets
 
 | Target | Produce | Dependencias |
 |--------|---------|--------------|
@@ -40,19 +74,16 @@ Targets disponibles:
 
 Cada target usa `clang++ -std=c++20 -O2 -Wall`. El `build.sh` añade los includes necesarios:
 
-- **Todos**: `-I include -I .`
-- **Server**: nada extra (Crow está en `deps/`)
-- **Dashboard**: `-I deps/glfw-build/include -I deps/imgui -I deps/imgui/backends -I deps/implot`
-- **Term**: nada extra (nlohmann/json en `deps/`)
+| Target | Includes extra | Links extra |
+|--------|---------------|-------------|
+| CLI | `-I include -I .` | — |
+| Server | `-I include -I .` | — (header-only) |
+| Dashboard | `-I include -I .` + `-I deps/glfw-build/include -I deps/imgui -I deps/imgui/backends -I deps/implot` | `deps/glfw-build/lib/libglfw3.a` + ImGui/ImPlot + `-lGLEW -lGL -lX11 -lpthread -ldl -lm` |
+| Term | `-I include -I .` | — (header-only) |
 
-Y los links:
+---
 
-- **CLI**: nada
-- **Server**: nada (header-only)
-- **Dashboard**: `deps/glfw-build/lib/libglfw3.a` + sources de ImGui/ImPlot + `-lGLEW -lGL -lX11 -lpthread -ldl -lm`
-- **Term**: nada
-
-## 14.2. Compilar las dependencias externas
+## 14.3. Compilar las dependencias externas
 
 ### GLFW 3.4 (solo la primera vez)
 
@@ -144,41 +175,51 @@ cd deps
 wget https://github.com/nlohmann/json/releases/download/v3.11.3/json.hpp
 ```
 
-## 14.3. Compilar la librería de ejemplo
+---
+
+## 14.4. Compilar la librería de ejemplo
 
 ```bash
 clang++ -std=c++20 -shared -fPIC -fvisibility=hidden \
     -I include -o lib/libtestnative.so lib/test_lib.cpp
 ```
 
-## 14.4. `test_e2e.sh`: test end-to-end
+---
+
+## 14.5. `test_e2e.sh`: test end-to-end
 
 ```bash
 ./test_e2e.sh
 ```
 
-Pasos:
+### Pasos del test
 
-1. **Build all** (`./build.sh all`).
-2. **Generar escena**: `./zeta tests/dashboard_scene.zl` → produce `tests/dashboard_scene.json` con 10 nodos.
-3. **Iniciar server**: `./zeta_server --port 8095 &`.
-4. **POST /api/run** con el contenido del `.zl`.
-5. **GET /api/grafo**: verifica que el server reporta 10 nodos.
-6. **Screenshot** vía `zeta_dashboard --screenshot ...`.
-7. **Terminal render** vía `zeta_term` y verifica títulos de nodos.
-8. **Cleanup**: mata el server.
+| Paso | Acción |
+|------|--------|
+| 1 | Build all (`./build.sh all`) |
+| 2 | Generar escena: `./zeta tests/dashboard_scene.zl` → produce `tests/dashboard_scene.json` (10 nodos) |
+| 3 | Iniciar server: `./zeta_server --port 8095 &` |
+| 4 | POST `/api/run` con el contenido del `.zl` |
+| 5 | GET `/api/grafo`: verifica que el server reporta 10 nodos |
+| 6 | Screenshot vía `zeta_dashboard --screenshot ...` |
+| 7 | Terminal render vía `zeta_term` y verifica títulos de nodos |
+| 8 | Cleanup: mata el server |
 
-PASS si:
+### Criterios de éxito
 
 - `NODES == API_NODES` (10 == 10)
 - `SCREENSHOT` existe
 - `TERM_TITLES > 0`
 
-## 14.5. `package.sh`: crear distribución
+---
+
+## 14.6. `package.sh`: crear distribución
 
 ```bash
 ./package.sh 0.1.0
 ```
+
+### Estructura del paquete
 
 Crea `dist/zeta-0.1.0/` con:
 
@@ -229,7 +270,9 @@ clang++ -std=c++20 -shared -fPIC -fvisibility=hidden \
     -I include -o lib/libtestnative.so lib/test_lib.cpp
 ```
 
-## 14.6. Compilación cruzada
+---
+
+## 14.7. Compilación cruzada
 
 ### Windows (desde Linux)
 
@@ -266,7 +309,9 @@ clang++ -std=c++20 -O2 -I include -I . \
 
 `zeta_dashboard` y `zeta_term` deberían funcionar en macOS con ajustes menores (ImGui ya tiene backend para Cocoa, GLFW soporta Cocoa).
 
-## 14.7. CMake (alternativa)
+---
+
+## 14.8. CMake (alternativa)
 
 El proyecto incluye un `CMakeLists.txt` para los que prefieren CMake:
 
@@ -276,17 +321,21 @@ cmake ..
 make
 ```
 
-Targets:
+### Targets CMake
 
-- `zeta` (CLI)
-- `zeta_server` (HTTP server)
-- `zeta_dashboard` (renderer OpenGL)
-- `zeta_term` (renderer ANSI)
-- `test_native_lib` (librería de ejemplo)
+| Target | Descripción |
+|--------|-------------|
+| `zeta` | CLI |
+| `zeta_server` | HTTP server |
+| `zeta_dashboard` | Renderer OpenGL |
+| `zeta_term` | Renderer ANSI |
+| `test_native_lib` | Librería de ejemplo |
 
 **Limitación actual**: el `CMakeLists.txt` no está 100% sincronizado con `build.sh`. Si vas a usar CMake, verifica los paths.
 
-## 14.8. CI/CD
+---
+
+## 14.9. CI/CD
 
 ### GitHub Actions ejemplo
 
@@ -321,7 +370,9 @@ EXPOSE 8080
 CMD ["./zeta_server", "--port", "8080"]
 ```
 
-## 14.9. Debug builds
+---
+
+## 14.10. Debug builds
 
 Para debug:
 
@@ -347,17 +398,23 @@ perf report
 valgrind --tool=callgrind ./zeta mi_script.zl
 ```
 
-## 14.10. Sistema de versiones
+---
+
+## 14.11. Sistema de versiones
 
 El proyecto sigue **Semantic Versioning** parcialmente:
 
-- **Mayor**: cambios incompatibles en la sintaxis o ABI.
-- **Menor**: nuevas funciones nativas, nuevos tipos de nodo.
-- **Patch**: bugfixes, optimizaciones.
+| Nivel | Cuándo |
+|-------|--------|
+| Mayor | Cambios incompatibles en la sintaxis o ABI |
+| Menor | Nuevas funciones nativas, nuevos tipos de nodo |
+| Patch | Bugfixes, optimizaciones |
 
 La versión actual está en el `package.sh` y en los mensajes de `start.sh`. No hay un archivo `VERSION` (considerado innecesario para el alcance actual).
 
-## 14.11. Próximos pasos del build
+---
+
+## 14.12. Próximos pasos del build
 
 - [ ] CMake completo y sincronizado.
 - [ ] Build con `ninja` en lugar de `make`.

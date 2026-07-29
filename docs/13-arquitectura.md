@@ -1,8 +1,49 @@
-# 13. Arquitectura interna
+# 13. Arquitectura Interna
 
 Este documento describe el **pipeline de ejecución** de un programa Zeta: cómo el código fuente se convierte en cómputo, y qué pasa por debajo.
 
-## 13.1. Vista general
+---
+
+## Índice
+
+- [13.1. Resumen rápido](#131-resumen-rápido)
+- [13.2. Vista general del pipeline](#132-vista-general-del-pipeline)
+- [13.3. Lexer: de texto a tokens](#133-lexer-de-texto-a-tokens)
+- [13.4. Parser: de tokens a AST](#134-parser-de-tokens-a-ast)
+- [13.5. Interpreter: de AST a cómputo](#135-interpreter-de-ast-a-cómputo)
+- [13.6. Tabla de Símbolos](#136-tabla-de-símbolos)
+- [13.7. El tipo `ValorZeta`](#137-el-tipo-valorzeta)
+- [13.8. Serialización](#138-serialización)
+- [13.9. El grafo (SceneSpec)](#139-el-grafo-scenespec)
+- [13.10. El sistema de imports](#1310-el-sistema-de-imports)
+- [13.11. El DL Loader](#1311-el-dl-loader)
+- [13.12. La ABI C](#1312-la-abi-c)
+- [13.13. El servidor HTTP](#1313-el-servidor-http)
+- [13.14. Extender el lenguaje](#1314-extender-el-lenguaje)
+- [13.15. Modelo de memoria (v0.2)](#1315-modelo-de-memoria-v02)
+- [13.16. Métricas de tamaño](#1316-métricas-de-tamaño)
+
+---
+
+## 13.1. Resumen rápido
+
+| Componente | Líneas | Archivo |
+|------------|--------|---------|
+| Lexer | 201 | `src/lexer/lexer.cpp` |
+| Parser | 839 | `src/parser/parser.cpp` |
+| Interpreter | 1955 | `src/interpreter/interpreter.cpp` |
+| Core (valor, símbolos, errores, stats) | ~250 | `src/core/*.cpp` |
+| Server | 386 | `src/server_main.cpp` |
+| Renderer OpenGL | ~580 | `src/renderer/main.cpp` |
+| Renderer Terminal | ~520 | `src/term/main.cpp` |
+| DL Loader + ABI | ~100 | `src/dl_loader/dl_loader.cpp` |
+| **Total (sin renderers)** | **~3700** | — |
+
+El **54.7% del código está en el intérprete**, principalmente en `llamar_nativa` (las 50+ funciones built-in). Esto es esperable: la mayor parte del "lenguaje" son las funciones nativas.
+
+---
+
+## 13.2. Vista general del pipeline
 
 ```
    archivo.zl
@@ -32,7 +73,9 @@ Este documento describe el **pipeline de ejecución** de un programa Zeta: cómo
              (Crow)      (OpenGL)    (ANSI)
 ```
 
-## 13.2. Lexer: de texto a tokens
+---
+
+## 13.3. Lexer: de texto a tokens
 
 **Archivo**: `src/lexer/lexer.cpp` (201 líneas). **Header**: `include/zeta/lexer.hpp`.
 
@@ -104,7 +147,9 @@ Para matrices `<<1, 2>, <3, 4>>`:
 
 La profundidad se incrementa con `<<` y se decrementa con `>>`. Mientras `profundidad_coleccion_ > 0`, cualquier `<` es vector-abre.
 
-## 13.3. Parser: de tokens a AST
+---
+
+## 13.4. Parser: de tokens a AST
 
 **Archivo**: `src/parser/parser.cpp` (839 líneas). **Header**: `include/zeta/parser.hpp`.
 
@@ -155,7 +200,9 @@ Cada `declaracion_X()` consume los tokens esperados y construye el sub-Árbol co
 
 El parser lanza `std::runtime_error("Token inesperado: esperaba tipo X pero obtuvo 'Y' en línea Z")` cuando el token actual no coincide con el esperado. **No hay recovery** — un error de parseo aborta la ejecución.
 
-## 13.4. Interpreter: de AST a cómputo
+---
+
+## 13.5. Interpreter: de AST a cómputo
 
 **Archivo**: `src/interpreter/interpreter.cpp` (1955 líneas). **Header**: `include/zeta/interpreter.hpp`.
 
@@ -200,7 +247,9 @@ Cada tipo de nodo tiene su método:
 
 El intérprete también soporta funciones de manipulación de datos: `group_by`, `agg`, y `merge` para operaciones de agregación y joins sobre DataFrames.
 
-## 13.5. Tabla de Símbolos
+---
+
+## 13.6. Tabla de Símbolos
 
 **Archivo**: `src/core/tabla_simbolos.cpp` (40 líneas). **Header**: `include/zeta/tabla_simbolos.hpp`.
 
@@ -226,7 +275,9 @@ $x = 1
 print($x)    # 1
 ```
 
-## 13.6. El tipo `ValorZeta`
+---
+
+## 13.7. El tipo `ValorZeta`
 
 **Archivo**: `include/zeta/valor_zeta.hpp` (145 líneas). **Implementación**: `src/core/valor_zeta.cpp` (195 líneas).
 
@@ -283,13 +334,17 @@ bool es_null(double valor) {
 
 IEEE 754 garantiza que `NaN != NaN` y que cualquier operación sobre NaN da NaN. Esto hace que la propagación de null sea "gratis" en hardware.
 
-## 13.7. Serialización
+---
+
+## 13.8. Serialización
 
 **Archivo**: `src/core/serializador.cpp` (115 líneas). **Header**: `include/zeta/serializador.hpp`.
 
 `valor_a_json(ValorZeta)` convierte cualquier tipo Zeta a `nlohmann::json`. La serialización es **recursiva** y maneja los 15 tipos. NaN se serializa como `null`.
 
-## 13.8. El grafo (SceneSpec)
+---
+
+## 13.9. El grafo (SceneSpec)
 
 **Header**: en `include/zeta/valor_zeta.hpp`. **Implementación**: en `src/core/valor_zeta.cpp`. **Serialización**: `src/core/grafo_json.cpp` (119 líneas). **Header**: `include/zeta/grafo_json.hpp`.
 
@@ -312,7 +367,9 @@ bool guardar_grafo_json(const std::string& ruta, const SceneSpec& s);
 std::shared_ptr<SceneSpec> cargar_grafo_json(const std::string& ruta);
 ```
 
-## 13.9. El sistema de imports
+---
+
+## 13.10. El sistema de imports
 
 **Archivo**: parte de `src/interpreter/interpreter.cpp` (~250 líneas).
 
@@ -341,7 +398,9 @@ if (std::find(pila_imports_.begin(), pila_imports_.end(), canon) != pila_imports
 }
 ```
 
-## 13.10. El DL Loader
+---
+
+## 13.11. El DL Loader
 
 **Archivo**: `src/dl_loader/dl_loader.cpp`. **Header**: `include/zeta/dl_loader.hpp`.
 
@@ -361,7 +420,9 @@ class DlRegistry {
 
 El `Registry` mantiene librerías abiertas durante toda la vida del proceso. El marshaller en `llamar_usuario` detecta el prefijo `::dl::` en `func_nombre` y despacha a C en lugar de a AST.
 
-## 13.11. La ABI C
+---
+
+## 13.12. La ABI C
 
 **Header**: `include/zeta/zeta_abi.h` (22 líneas).
 
@@ -371,7 +432,9 @@ typedef double (*zeta_fn_t)(int n_args, const double* args);
 
 Es la **única** definición de la ABI. Las funciones nativas reciben `n_args` doubles y devuelven un double. La convención NaN-como-error se aplica en la frontera.
 
-## 13.12. El servidor HTTP
+---
+
+## 13.13. El servidor HTTP
 
 **Archivo**: `src/server_main.cpp` (386 líneas).
 
@@ -387,7 +450,9 @@ CROW_ROUTE(app, "/api/datos")
 });
 ```
 
-## 13.13. Extender el lenguaje
+---
+
+## 13.14. Extender el lenguaje
 
 ### Añadir una función nativa
 
@@ -410,7 +475,9 @@ CROW_ROUTE(app, "/api/datos")
 4. Implementa un dispatcher por `node.tipo`.
 5. Agrega el target al `build.sh`.
 
-## 13.14. Modelo de memoria (v0.2)
+---
+
+## 13.15. Modelo de memoria (v0.2)
 
 Zeta usa un **modelo híbrido inspirado en Rust**: reference counting para valores persistentes, arena allocator para temporales.
 
@@ -473,7 +540,9 @@ struct TablaSimbolos {
 | `clear_arena()` | N/A | O(1) bulk free | ∞ |
 | Vector temporales | Heap + refcount | Arena bump | ~5x |
 
-## 13.15. Métricas de tamaño
+---
+
+## 13.16. Métricas de tamaño
 
 | Componente | Líneas | % del total |
 |------------|--------|-------------|

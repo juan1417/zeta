@@ -1,15 +1,36 @@
 # 12. Renderers
 
-Zeta tiene dos renderers nativos que consumen el mismo JSON de escena (`GET /api/grafo`):
+Zeta tiene dos renderers nativos que consumen el mismo JSON de escena (`GET /api/grafo`).
 
-| Renderer | Tecnología | Peso | Requiere |
-|----------|-----------|------|----------|
-| `zeta_dashboard` | OpenGL 3.3 + GLFW + GLEW + ImGui + ImPlot | ~3.6 MB | X11, OpenGL |
-| `zeta_term` | ANSI 24-bit + half-block | ~234 KB | Solo terminal TTY |
+---
+
+## Índice
+
+- [12.1. Resumen rápido](#121-resumen-rápido)
+- [12.2. `zeta_dashboard` — OpenGL nativo](#122-zeta_dashboard--opengl-nativo)
+- [12.3. `zeta_term` — ANSI 24-bit](#123-zeta_term--ansi-24-bit)
+- [12.4. Comparación lado a lado](#124-comparación-lado-a-lado)
+- [12.5. Cuál usar](#125-cuál-usar)
+- [12.6. Ejemplo completo: crear y renderizar una escena](#126-ejemplo-completo-crear-y-renderizar-una-escena)
+- [12.7. Modo screenshot automatizado](#127-modo-screenshot-automatizado)
+- [12.8. Workflow CI/CD con GitHub Actions](#128-workflow-cicd-con-github-actions)
+- [12.9. Extender: añadir un nuevo renderer](#129-extender-añadir-un-nuevo-renderer)
+- [12.10. Limitaciones comunes](#1210-limitaciones-comunes)
+
+---
+
+## 12.1. Resumen rápido
+
+| Renderer | Comando | Deps | Descripción |
+|----------|---------|------|-------------|
+| `zeta_dashboard` | `./build.sh dashboard` | X11, OpenGL, GLFW, GLEW, ImGui, ImPlot | OpenGL 3.3 + ImGui + ImPlot (~3.6 MB) |
+| `zeta_term` | `./build.sh term` | Solo libc + nlohmann/json | ANSI 24-bit + half-block (~234 KB) |
 
 Ambos se conectan al servidor, leen la escena, y la renderizan. **Elige el que se ajuste a tu entorno**: el dashboard para workstations con X11, el terminal para SSH o servers headless.
 
-## 12.1. `zeta_dashboard` — OpenGL nativo
+---
+
+## 12.2. `zeta_dashboard` — OpenGL nativo
 
 ### Compilar
 
@@ -29,13 +50,16 @@ Requiere:
 ./zeta_dashboard --host localhost --port 8080
 ```
 
-Flags:
-- `--host HOST`: servidor Zeta (default `localhost`).
-- `--port N`: puerto (default `8080`).
-- `--refresh SECS`: intervalo de refresco (default 2s).
-- `--screenshot RUTA`: en lugar de mostrar ventana, genera un PNG.
-- `--width N --height N`: tamaño de la ventana (o screenshot).
-- `--wait N`: frames a esperar antes del screenshot (para que se estabilice el render).
+### Flags
+
+| Flag | Descripción | Default |
+|------|-------------|---------|
+| `--host HOST` | Servidor Zeta | `localhost` |
+| `--port N` | Puerto | `8080` |
+| `--refresh SECS` | Intervalo de refresco | `2s` |
+| `--screenshot RUTA` | Genera PNG en lugar de ventana | — |
+| `--width N --height N` | Tamaño de ventana o screenshot | — |
+| `--wait N` | Frames a esperar antes del screenshot | — |
 
 ### Modo screenshot
 
@@ -54,8 +78,6 @@ Crea una ventana oculta, hace N frames, y exporta un PNG via `glReadPixels` + `s
 
 ### Per-node renderers
 
-Cada tipo de nodo se renderiza con su función específica:
-
 | Tipo | Renderer | Descripción |
 |------|----------|-------------|
 | `metric` | `render_metric` | Texto grande con valor y unidad |
@@ -72,7 +94,9 @@ Cada tipo de nodo se renderiza con su función específica:
 
 Fondo `#1e1e1e`, paneles `#252526`, texto `#d4d4d4`, acento azul `#007acc`. Configurable en el código (`src/renderer/main.cpp`).
 
-## 12.2. `zeta_term` — ANSI 24-bit
+---
+
+## 12.3. `zeta_term` — ANSI 24-bit
 
 ### Compilar
 
@@ -92,12 +116,15 @@ Solo requiere:
 ./zeta_term --host localhost --port 8080 --width 120
 ```
 
-Flags:
-- `--host HOST`: servidor (default `localhost`).
-- `--port N`: puerto (default `8080`).
-- `--file RUTA`: en lugar de consultar el server, lee un JSON local.
-- `--width N`: ancho forzado (default: autodetect via `ioctl(TIOCGWINSZ)` o `$COLUMNS`).
-- `--no-color`: desactiva ANSI 24-bit (para terminales sin soporte).
+### Flags
+
+| Flag | Descripción | Default |
+|------|-------------|---------|
+| `--host HOST` | Servidor | `localhost` |
+| `--port N` | Puerto | `8080` |
+| `--file RUTA` | Lee un JSON local en lugar del server | — |
+| `--width N` | Ancho forzado | Autodetect (`ioctl` / `$COLUMNS`) |
+| `--no-color` | Desactiva ANSI 24-bit | — |
 
 ### Autodetección de ancho
 
@@ -114,7 +141,7 @@ Esto significa que **se redimensiona automáticamente** si cambias el tamaño de
 ### Salida de ejemplo
 
 ```
- Zeta Dashboard  -  Analisis de Ventas  (zeta, 10 nodos) 
+ Zeta Dashboard  -  Analisis de Ventas  (zeta, 10 nodos)
 +Ventas totales----------------------------------+ +Gastos totales----------------------------------+
 |                                                | |                                                |
 |                                                | |                                                |
@@ -170,7 +197,9 @@ ssh usuario@server './zeta_term --host localhost --port 8080 --width 100 --no-co
 
 Sin X11, sin OpenGL, sin GPU. Solo necesitas una terminal que soporte UTF-8 (que es básicamente cualquier terminal moderna, incluyendo `tmux`, `screen`, `mosh`).
 
-## 12.3. Comparación lado a lado
+---
+
+## 12.4. Comparación lado a lado
 
 | Característica | `zeta_dashboard` | `zeta_term` |
 |----------------|------------------|-------------|
@@ -185,7 +214,9 @@ Sin X11, sin OpenGL, sin GPU. Solo necesitas una terminal que soporte UTF-8 (que
 | Mobile/SSH | No | Sí |
 | Auto-resize | Sí (GLFW window) | No (requiere re-ejec) |
 
-## 12.4. Cuál usar
+---
+
+## 12.5. Cuál usar
 
 - **Desarrollo local con monitor**: `zeta_dashboard`.
 - **Demo a un cliente vía SSH**: `zeta_term`.
@@ -193,7 +224,9 @@ Sin X11, sin OpenGL, sin GPU. Solo necesitas una terminal que soporte UTF-8 (que
 - **Server headless que solo quiere logs visuales**: `zeta_term --no-color > log.txt`.
 - **Laptop sin X11 (e.g., Mac con SSH)**: `zeta_term`.
 
-## 12.5. Ejemplo completo: crear y renderizar una escena
+---
+
+## 12.6. Ejemplo completo: crear y renderizar una escena
 
 ### Paso 1: Escribir el script de escena
 
@@ -252,7 +285,9 @@ Esto es útil para:
 - Renderizar snapshots de escenas guardadas
 - Debugging de la estructura JSON
 
-## 12.6. Modo screenshot automatizado
+---
+
+## 12.7. Modo screenshot automatizado
 
 ```bash
 # Generar un PNG del dashboard para un reporte
@@ -271,7 +306,9 @@ kill %1  # cerrar servidor
 
 El flag `--wait 5` espera 5 frames antes de capturar, dando tiempo a que ImPlot renderice los gráficos.
 
-## 12.7. Workflow CI/CD con GitHub Actions
+---
+
+## 12.8. Workflow CI/CD con GitHub Actions
 
 ```yaml
 # .github/workflows/report.yml
@@ -303,7 +340,9 @@ jobs:
           path: reporte_*.png
 ```
 
-## 12.8. Extender: añadir un nuevo renderer
+---
+
+## 12.9. Extender: añadir un nuevo renderer
 
 El contrato es simple: hacer `GET /api/grafo`, parsear el JSON, renderizar. Pasos para un nuevo consumidor:
 
@@ -314,7 +353,9 @@ El contrato es simple: hacer `GET /api/grafo`, parsear el JSON, renderizar. Paso
 
 Tiempo estimado para un renderer básico: **1-2 días** para alguien con experiencia en C++/gráficos.
 
-## 12.9. Limitaciones comunes
+---
+
+## 12.10. Limitaciones comunes
 
 - **Ambos renderers son single-threaded**: no hay composición paralela.
 - **Sin animaciones**: la escena se re-renderiza completa cada vez, no hay transiciones.

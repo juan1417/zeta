@@ -1,4 +1,65 @@
-# 4. Control de flujo y funciones
+# 4. Control de Flujo y Funciones
+
+## Tabla de Contenidos
+
+- [4.1. Condicionales: `if` / `else`](#41-condicionales-if--else)
+- [4.2. Bucle `for` / `in`](#42-bucle-for--in)
+- [4.3. Bucle `while`](#43-bucle-while)
+- [4.4. Operador ternario](#44-operador-ternario)
+- [4.5. Definición de funciones: `fn`](#45-definición-de-funciones-fn)
+- [4.6. `return`](#46-return)
+- [4.7. Anidamiento](#47-anidamiento)
+- [4.8. Ámbitos: cómo se resuelven los nombres](#48-ámbitos-cómo-se-resuelven-los-nombres)
+- [4.9. Resumen de palabras clave de control](#49-resumen-de-palabras-clave-de-control)
+- [4.10. Patrones comunes](#410-patrones-comunes)
+- [4.11. Programación orientada a objetos](#411-programación-orientada-a-objetos)
+
+---
+
+## Resumen Rápido
+
+### Keywords de Control
+
+| Keyword | Uso | Ejemplo |
+|---------|-----|---------|
+| `if (cond) { ... }` | Condicional | `if ($x > 0) { print("pos") }` |
+| `else { ... }` | Rama alternativa del `if` | `if ($x > 0) { ... } else { ... }` |
+| `for ($x in $iter) { ... }` | Bucle sobre iterable | `for ($i in range(10)) { print($i) }` |
+| `while (cond) { ... }` | Bucle con condición | `while ($i < 10) { $i = $i + 1 }` |
+| `break` | Sale del bucle | `if ($i == 50) { break }` |
+| `continue` | Salta a la siguiente iteración | `if ($i % 2 == 0) { continue }` |
+| `return expr` | Retorna de la función | `return $x * $x` |
+| `fn nombre($p1, $p2) { ... }` | Define función | `fn cuadrado($x) { return $x * $x }` |
+| `cond ? si : no` | Ternario inline | `$s = $x > 0 ? "pos" : "neg"` |
+| `asignacion = valor?` | Propagación de error | `$d = leer_archivo("f.csv")?` |
+
+### Estructuras de Control — Resumen Visual
+
+| Estructura | Sintaxis | Obligatorios |
+|------------|----------|--------------|
+| `if` simple | `if (cond) { ... }` | Condición `bool`, bloque `{}` |
+| `if/else` | `if (cond) { ... } else { ... }` | — |
+| `if/else if/else` | `if (cond) { ... } else if (cond) { ... } else { ... }` | — |
+| `for/in` | `for ($var in iterable) { ... }` | Iterable debe ser `VEC` |
+| `while` | `while (cond) { ... }` | Condición `bool` |
+| Ternario | `cond ? valor_si : valor_no` | Condición `bool` |
+
+### Funciones — Resumen
+
+| Característica | Detalle |
+|----------------|---------|
+| Declaración | `fn nombre($params) { cuerpo }` |
+| Parámetros | Siempre con `$` |
+| Retorno | `return expr` (opcional; si se omite, retorna `null`) |
+| Paso de argumentos | Por valor (shared_ptr, copia barata) |
+| Alcance | Global al evaluarse la declaración |
+| Orden | Se puede llamar antes o después de su definición |
+| Lambdas | `fn($params) { cuerpo }` (expresión anónima) |
+| Higher-order | `map`, `filter`, `reduce` acceptan `fn` como argumento |
+| Recursión | Soportada (sin límite configurable) |
+| Closures | Capturan el scope donde se definieron |
+
+---
 
 ## 4.1. Condicionales: `if` / `else`
 
@@ -43,6 +104,8 @@ if ($x) { ... }       # ERROR: esperaba bool, recibio num
 if ($x != 0) { ... }  # OK
 ```
 
+---
+
 ## 4.2. Bucle `for` / `in`
 
 ```zeta
@@ -85,6 +148,8 @@ for ($i in range(100)) {
 
 Internamente, `break` y `continue` lanzan un valor sentinel (`__ZETA_BREAK__`, `__ZETA_CONTINUE__`) que el bucle captura. No hay manera de que el código de usuario los vea accidentalmente (son strings mágicos que el intérprete filtra).
 
+---
+
 ## 4.3. Bucle `while`
 
 ```zeta
@@ -96,6 +161,8 @@ while ($i < 10) {
 ```
 
 `while` evalúa la condición antes de cada iteración. Si es `false` desde el inicio, el cuerpo nunca se ejecuta. Acepta `break` y `continue` igual que `for`.
+
+---
 
 ## 4.4. Operador ternario
 
@@ -119,6 +186,8 @@ $result = $mask ? 0 : <1, 2, 3, 4, 5>    # <1, 0, 3, 0, 5>
 ```
 
 Si `valor_si` y `valor_no` son vectores del mismo tamaño que la máscara, se indexa posición a posición. Si son escalares, se difunden (broadcast) a todo el vector.
+
+---
 
 ## 4.5. Definición de funciones: `fn`
 
@@ -259,6 +328,8 @@ f()
 print($x)      # 10 (la $x global no cambió)
 ```
 
+---
+
 ## 4.6. `return`
 
 `return` termina la función inmediatamente y devuelve el valor de la expresión siguiente:
@@ -288,6 +359,8 @@ fn buscar($vec, $target) {
 }
 ```
 
+---
+
 ## 4.7. Anidamiento
 
 Los bloques se pueden anidar arbitrariamente. Cada `{}` abre un nuevo scope con visibilidad de las variables del scope padre (lexical scoping):
@@ -303,6 +376,8 @@ fn outer() {
 }
 print(outer())    # 30
 ```
+
+---
 
 ## 4.8. Ámbitos: cómo se resuelven los nombres
 
@@ -329,20 +404,24 @@ fn g() {
 }
 ```
 
+---
+
 ## 4.9. Resumen de palabras clave de control
 
-| Keyword | Uso |
-|---------|-----|
-| `if (cond) { ... }` | Condicional |
-| `else { ... }` | Rama del `if` |
-| `for ($x in $iter) { ... }` | Bucle sobre iterable |
-| `while (cond) { ... }` | Bucle con condición |
-| `break` | Sale del bucle |
-| `continue` | Salta a la siguiente iteración |
-| `return expr` | Retorna de la función |
-| `fn nombre($p1, $p2) { ... }` | Define función |
-| `cond ? si : no` | Ternario inline |
-| `asignacion = valor?` | Propagación de error |
+| Keyword | Uso | Notas |
+|---------|-----|-------|
+| `if (cond) { ... }` | Condicional | Condición debe ser `bool` |
+| `else { ... }` | Rama alternativa | Opcional |
+| `for ($x in $iter) { ... }` | Bucle sobre iterable | Iterable debe ser `VEC` |
+| `while (cond) { ... }` | Bucle con condición | Condición debe ser `bool` |
+| `break` | Sale del bucle | Solo dentro de `for` o `while` |
+| `continue` | Salta a la siguiente iteración | Solo dentro de `for` o `while` |
+| `return expr` | Retorna de la función | Opcional; retorna `null` si se omite |
+| `fn nombre($p1, $p2) { ... }` | Define función | Params con `$`, cuerpo en `{}` |
+| `cond ? si : no` | Ternario inline | Condición debe ser `bool` |
+| `asignacion = valor?` | Propagación de error | Aborta si el valor es `ERR` |
+
+---
 
 ## 4.10. Patrones comunes
 
@@ -396,9 +475,11 @@ fn producto_total($vec) {
 print(producto_total(<2, 3, 4>))    # 24
 ```
 
+---
+
 ## 4.11. Programación orientada a objetos
 
-Zeta tiene soporte de primera clase para OOP estilo Python/JS-Go. Las clases encapsulan estado (campos) y comportamiento (metodos) con herencia simple.
+Zeta tiene soporte de primera clase para OOP estilo Python/JS-Go. Las clases encapsulan estado (campos) y comportamiento (métodos) con herencia simple.
 
 ### Definir una clase
 
@@ -417,10 +498,10 @@ class Counter {
 
 Reglas:
 
-- `class Nombre { ... }` declara una clase. El nombre empieza con mayuscula por convencion.
+- `class Nombre { ... }` declara una clase. El nombre empieza con mayúscula por convención.
 - Los campos son `$nombre = valor_inicial`. Se inicializan en cada `new`.
-- Los metodos son `fn nombre($self, $arg1, $arg2) { ... }`. **`$self` es siempre el primer parametro** (convencion Go/Rust, evita romper la regla de sigilos).
-- Los campos y metodos pueden estar en cualquier orden dentro del bloque.
+- Los métodos son `fn nombre($self, $arg1, $arg2) { ... }`. **`$self` es siempre el primer parámetro** (convención Go/Rust, evita romper la regla de sigilos).
+- Los campos y métodos pueden estar en cualquier orden dentro del bloque.
 
 ### Crear instancias
 
@@ -429,7 +510,7 @@ $c = new Counter()           # sin argumentos
 $d = new Counter(10)         # si la clase define un metodo `init`, recibe los args
 ```
 
-`new` crea un objeto nuevo, copia los valores por defecto de los campos (recorriendo la cadena de herencia), y si existe un metodo `init` lo invoca automaticamente con `($self, $arg1, ...)`.
+`new` crea un objeto nuevo, copia los valores por defecto de los campos (recorriendo la cadena de herencia), y si existe un metodo `init` lo invoca automáticamente con `($self, $arg1, ...)`.
 
 ### Acceder y modificar campos
 
@@ -438,13 +519,13 @@ print($c.count)        # lectura: sintaxis de acceso a campo
 $c.count = 99          # escritura: asignacion a campo
 ```
 
-### Llamar metodos
+### Llamar métodos
 
 ```zeta
 print($c.inc())        # sintaxis: $obj.metodo(args)
 ```
 
-El interpreter traduce internamente `$c.inc(args)` a `inc($c, args)`. El `$self` se enlaza automaticamente.
+El interpreter traduce internamente `$c.inc(args)` a `inc($c, args)`. El `$self` se enlaza automáticamente.
 
 ### Herencia simple
 
@@ -473,13 +554,13 @@ class Puppy extends Dog {
 Reglas:
 
 - `class Hija extends Padre { ... }` declara herencia simple.
-- Los campos de la clase padre se copian primero; la hija puede sobreescribirlos redeclarandolos.
-- Los metodos se buscan en la clase del objeto, luego en su padre, luego en el abuelo, etc.
-- Un metodo de la hija puede llamar al del padre con el nombre del metodo directamente (no hay `super` en v1).
+- Los campos de la clase padre se copian primero; la hija puede sobreescribirlos redeclarándolos.
+- Los métodos se buscan en la clase del objeto, luego en su padre, luego en el abuelo, etc.
+- Un método de la hija puede llamar al del padre con el nombre del metodo directamente (no hay `super` en v1).
 
-### El `this` explicito (opcional)
+### El `this` explícito (opcional)
 
-Aunque `$self` es el primer parametro, dentro de un metodo tambien podes usar `this` para referirte al receptor actual:
+Aunque `$self` es el primer parametro, dentro de un metodo también podés usar `this` para referirte al receptor actual:
 
 ```zeta
 class Foo {
@@ -490,20 +571,22 @@ class Foo {
 }
 ```
 
-`this` devuelve el mismo objeto que `$self`. Es azucar sintactico para mantener familiaridad con JavaScript/Java.
+`this` devuelve el mismo objeto que `$self`. Es azúcar sintáctico para mantener familiaridad con JavaScript/Java.
 
 ### Limitaciones v1
 
-- **Sin herencia multiple** — solo `extends Padre` (un unico padre).
-- **Sin `super`** — para llamar al metodo del padre, referenciarlo por nombre desde la clase hija.
-- **Sin interfaces ni mixins** — solo clases concretas con campos y metodos.
-- **Sin visibilidad** — todos los campos son publicos (`$obj.campo` siempre funciona).
-- **Sin metodos estaticos** — si necesitas uno, usa una funcion regular en el mismo archivo.
-- **Sin `class method`** — todo metodo es de instancia.
-- **Constructores via `init`** — si declaras un metodo llamado `init`, se invoca automaticamente despues de `new`. No hay palabra clave `constructor`.
-- **Sin sobrecarga de operadores** — `+` en objetos no llama a ningun metodo magico.
+| Limitación | Descripción |
+|------------|-------------|
+| **Sin herencia múltiple** | Solo `extends Padre` (un único padre) |
+| **Sin `super`** | Para llamar al metodo del padre, referenciarlo por nombre desde la clase hija |
+| **Sin interfaces ni mixins** | Solo clases concretas con campos y métodos |
+| **Sin visibilidad** | Todos los campos son públicos (`$obj.campo` siempre funciona) |
+| **Sin métodos estáticos** | Si necesitas uno, usa una función regular en el mismo archivo |
+| **Sin `class method`** | Todo método es de instancia |
+| **Constructores via `init`** | Si declarás un metodo llamado `init`, se invoca automáticamente después de `new`. No hay palabra clave `constructor` |
+| **Sin sobrecarga de operadores** | `+` en objetos no llama a ningún metodo magico |
 
-### Ejemplo completo
+### Ejemplo completo: BankAccount
 
 ```zeta
 class BankAccount {

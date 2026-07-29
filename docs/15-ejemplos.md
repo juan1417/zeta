@@ -1,4 +1,4 @@
-# 15. Ejemplos completos (cookbook)
+# 15. Ejemplos Prácticos
 
 Cada ejemplo es un script **completo y ejecutable**. Copia el contenido a un archivo `.zl` y corre `./zeta archivo.zl` o envíalo al server con `POST /api/run`.
 
@@ -6,47 +6,57 @@ Cada ejemplo es un script **completo y ejecutable**. Copia el contenido a un arc
 
 > **Lambdas anónimas**: la sintaxis `fn($x) { return ... }` como expresión es válida y se evalúa a un valor de tipo `FUNC`. Se puede asignar a una variable (`$f = fn(...) { ... }`) y llamar por su nombre sin sigil (`f(args)`). Funciona con `map`, `filter`, `reduce` y recursión (la lambda puede referenciarse a sí misma por el nombre de la variable).
 
-## Índice por nivel
+---
+
+## Índice
+
+### Por nivel
 
 | # | Ejemplo | Conceptos | Nivel |
 |---|---------|-----------|-------|
-| 1 | [Hola mundo](#1-hola-mundo) | `print`, literales | 🟢 |
-| 2 | [Variables y vectores](#2-variables-y-vectores) | sigil `$`, `<>` | 🟢 |
-| 3 | [Operadores y comparaciones](#3-operadores-y-comparaciones) | aritmética, comparación, lógicos | 🟢 |
-| 4 | [Condicionales y bucles](#4-condicionales-y-bucles) | `if/else`, `for/in`, `while` | 🟢 |
-| 5 | [Funciones definidas por el usuario](#5-funciones-definidas-por-el-usuario) | `fn`, `return`, helpers, búsqueda | 🟢 |
-| 6 | [Strings y manipulación](#6-strings-y-manipulación) | `upper`, `lower`, `split`, `join`, `replace` | 🟡 |
-| 7 | [Funciones de orden superior](#7-funciones-de-orden-superior) | `map`, `filter`, `reduce` | 🟡 |
-| 8 | [Cargar CSV y analizar](#8-cargar-csv-y-analizar) | `load_csv`, `sum`, `mean`, `stddev`, `:columna` | 🟡 |
-| 9 | [Filtrar y transformar DataFrames](#9-filtrar-y-transformar-dataframes) | `[[filtro]]`, `select`, `head` | 🟡 |
-| 10 | [Importar módulos](#10-importar-módulos) | `include`, `export`, namespace `::`, alias `as` | 🟡 |
-| 11 | [Crear un dashboard completo](#11-crear-un-dashboard-completo) | `scene`, `layout`, `add_*`, `guardar_grafo` | 🟠 |
-| 12 | [Cargar librería nativa (C ABI)](#12-cargar-librería-nativa-c-abi) | `load_lib`, `ZETA_API`, marshalling | 🟠 |
-| 13 | [Manejo de errores con `?`](#13-manejo-de-errores-con-) | `mk_err`, `is_error`, propagación | 🟠 |
-| 14 | [Ternario vectorizado](#14-ternario-vectorizado) | máscaras bool, `is_null`, `bool_vec` | 🟠 |
-| 15 | [Pipeline ETL completo](#15-pipeline-etl-completo) | CSV → transform → dashboard | 🔴 |
-| 16 | [Regresión lineal manual](#16-regresión-lineal-manual) | mínimos cuadrados, scatter + fit | 🔴 |
-| 17 | [Ordenamiento y algoritmos](#17-ordenamiento-y-algoritmos) | `sort`, `unique`, búsqueda binaria, quicksort recursivo, asignación por índice | 🔴 |
-| 18 | [Cliente HTTP via libcurl](#18-cliente-http-via-libcurl-loadlib) | `load_lib`, libcurl, wrapper C con strings | 🟡 |
-| 19 | [Programación orientada a objetos](#19-programación-orientada-a-objetos) | `class`, `new`, `extends`, `$self`, métodos, herencia simple | 🟢 |
-| 20 | [Formateo de números](#20-formateo-de-números) | `format($num, $decimals)` | 🟢 |
-| 21 | [Operaciones con matrices](#21-operaciones-con-matrices) | `<<>>`, `transpose`, `dot`, acceso `[i,j]` | 🟡 |
-| 22 | [Rutas HTTP personalizadas](#22-rutas-http-definidas-por-el-usuario) | `route()`, `serve()`, request/response | 🟠 |
-| 23 | [Módulos con clases](#23-módulos-con-clases) | `include`, `export`, clases en `.zl` | 🟠 |
-| 24 | [Pipeline completo](#24-pipeline-completo-con-todo-junto) | módulos + clases + errores + ternario + DataFrame | 🔴 |
-| 25 | [Limpieza de datos](#25-limpieza-de-datos-completa) | `drop`, `drop_nan`, `fill_null`, `unique`, `sort` | 🟡 |
-| 26 | [Medición de tiempos](#26-medición-de-tiempos) | `time()`, benchmark | 🟢 |
+| 1 | [Hola mundo](#ejemplo-1-hola-mundo) | `print`, literales | 🟢 |
+| 2 | [Variables y vectores](#ejemplo-2-variables-y-vectores) | sigil `$`, `<>` | 🟢 |
+| 3 | [Operadores y comparaciones](#ejemplo-3-operadores-y-comparaciones) | aritmética, comparación, lógicos | 🟢 |
+| 4 | [Condicionales y bucles](#ejemplo-4-condicionales-y-bucles) | `if/else`, `for/in`, `while` | 🟢 |
+| 5 | [Funciones definidas por el usuario](#ejemplo-5-funciones-definidas-por-el-usuario) | `fn`, `return`, helpers, búsqueda | 🟢 |
+| 6 | [Strings y manipulación](#ejemplo-6-strings-y-manipulación) | `upper`, `lower`, `split`, `join`, `replace` | 🟡 |
+| 7 | [Funciones de orden superior](#ejemplo-7-funciones-de-orden-superior) | `map`, `filter`, `reduce` | 🟡 |
+| 8 | [Cargar CSV y analizar](#ejemplo-8-cargar-csv-y-analizar) | `load_csv`, `sum`, `mean`, `stddev`, `:columna` | 🟡 |
+| 9 | [Filtrar y transformar DataFrames](#ejemplo-9-filtrar-y-transformar-dataframes) | `[[filtro]]`, `select`, `head` | 🟡 |
+| 10 | [Importar módulos](#ejemplo-10-importar-módulos) | `include`, `export`, namespace `::`, alias `as` | 🟡 |
+| 11 | [Crear un dashboard completo](#ejemplo-11-crear-un-dashboard-completo) | `scene`, `layout`, `add_*`, `guardar_grafo` | 🟠 |
+| 12 | [Cargar librería nativa (C ABI)](#ejemplo-12-cargar-librería-nativa-c-abi) | `load_lib`, `ZETA_API`, marshalling | 🟠 |
+| 13 | [Manejo de errores con `?`](#ejemplo-13-manejo-de-errores-con-) | `mk_err`, `is_error`, propagación | 🟠 |
+| 14 | [Ternario vectorizado](#ejemplo-14-ternario-vectorizado) | máscaras bool, `is_null`, `bool_vec` | 🟠 |
+| 15 | [Pipeline ETL completo](#ejemplo-15-pipeline-etl-completo) | CSV → transform → dashboard | 🔴 |
+| 16 | [Regresión lineal manual](#ejemplo-16-regresión-lineal-manual) | mínimos cuadrados, scatter + fit | 🔴 |
+| 17 | [Ordenamiento y algoritmos](#ejemplo-17-ordenamiento-y-algoritmos) | `sort`, `unique`, búsqueda binaria, quicksort recursivo, asignación por índice | 🔴 |
+| 18 | [Cliente HTTP via libcurl](#ejemplo-18-cliente-http-via-libcurl) | `load_lib`, libcurl, wrapper C con strings | 🟡 |
+| 19 | [Programación orientada a objetos](#ejemplo-19-programación-orientada-a-objetos) | `class`, `new`, `extends`, `$self`, métodos, herencia simple | 🟢 |
+| 20 | [Formateo de números](#ejemplo-20-formateo-de-números) | `format($num, $decimals)` | 🟢 |
+| 21 | [Operaciones con matrices](#ejemplo-21-operaciones-con-matrices) | `<<>>`, `transpose`, `dot`, acceso `[i,j]` | 🟡 |
+| 22 | [Rutas HTTP personalizadas](#ejemplo-22-rutas-http-personalizadas) | `route()`, `serve()`, request/response | 🟠 |
+| 23 | [Módulos con clases](#ejemplo-23-módulos-con-clases) | `include`, `export`, clases en `.zl` | 🟠 |
+| 24 | [Pipeline completo](#ejemplo-24-pipeline-completo-con-todo-junto) | módulos + clases + errores + ternario + DataFrame | 🔴 |
+| 25 | [Limpieza de datos](#ejemplo-25-limpieza-de-datos-completa) | `drop`, `drop_nan`, `fill_null`, `unique`, `sort` | 🟡 |
+| 26 | [Medición de tiempos](#ejemplo-26-medición-de-tiempos) | `time()`, benchmark | 🟢 |
 
-## Índice por dominio
+### Por dominio
 
-- **Análisis de datos**: [8](#8-cargar-csv-y-analizar), [9](#9-filtrar-y-transformar-dataframes), [11](#11-crear-un-dashboard-completo), [15](#15-pipeline-etl-completo), [24](#24-pipeline-completo-con-todo-junto), [25](#25-limpieza-de-datos-completa)
-- **Visualización**: [11](#11-crear-un-dashboard-completo)
-- **Algoritmos**: [16](#16-regresión-lineal-manual), [17](#17-ordenamiento-y-algoritmos)
-- **Sistemas**: [12](#12-cargar-librería-nativa-c-abi), [22](#22-rutas-http-definidas-por-el-usuario), [26](#26-medición-de-tiempos)
-- **Idioms del lenguaje**: [7](#7-funciones-de-orden-superior), [13](#13-manejo-de-errores-con-), [14](#14-ternario-vectorizado), [20](#20-formateo-de-números)
-- **OOP y módulos**: [19](#19-programación-orientada-a-objetos), [23](#23-módulos-con-clases)
-- **Matrices y álgebra**: [21](#21-operaciones-con-matrices)
-- **Limpieza de datos**: [25](#25-limpieza-de-datos-completa)
+| Dominio | Ejemplos |
+|---------|----------|
+| Análisis de datos | [8](#ejemplo-8-cargar-csv-y-analizar), [9](#ejemplo-9-filtrar-y-transformar-dataframes), [11](#ejemplo-11-crear-un-dashboard-completo), [15](#ejemplo-15-pipeline-etl-completo), [24](#ejemplo-24-pipeline-completo-con-todo-junto), [25](#ejemplo-25-limpieza-de-datos-completa) |
+| Visualización | [11](#ejemplo-11-crear-un-dashboard-completo) |
+| Algoritmos | [16](#ejemplo-16-regresión-lineal-manual), [17](#ejemplo-17-ordenamiento-y-algoritmos) |
+| Sistemas | [12](#ejemplo-12-cargar-librería-nativa-c-abi), [22](#ejemplo-22-rutas-http-personalizadas), [26](#ejemplo-26-medición-de-tiempos) |
+| Idioms del lenguaje | [7](#ejemplo-7-funciones-de-orden-superior), [13](#ejemplo-13-manejo-de-errores-con-), [14](#ejemplo-14-ternario-vectorizado), [20](#ejemplo-20-formateo-de-números) |
+| OOP y módulos | [19](#ejemplo-19-programación-orientada-a-objetos), [23](#ejemplo-23-módulos-con-clases) |
+| Matrices y álgebra | [21](#ejemplo-21-operaciones-con-matrices) |
+| Limpieza de datos | [25](#ejemplo-25-limpieza-de-datos-completa) |
+
+---
+
+## Fundamentos
 
 ---
 
@@ -372,6 +382,10 @@ buscar(<10,20,30>, 20) = 1.000000
 buscar(<10,20,30>, 99) = null
 area cuadrado(4) = 16.000000
 ```
+
+---
+
+## Manipulación de datos
 
 ---
 
@@ -923,6 +937,10 @@ is_null: true
 
 ---
 
+## Manejo de errores y tipos avanzados
+
+---
+
 ## Ejemplo 13: Manejo de errores con `?`
 
 ```zeta
@@ -1070,6 +1088,10 @@ Original: <-50, 50, 150, 75, -10>
 Clipeado: <0, 50, 100, 75, 0>
 Normalizado: <0, 0.5, 1, 0.625, 0.2>
 ```
+
+---
+
+## Pipelines completos
 
 ---
 
@@ -1336,7 +1358,7 @@ Quicksort recursivo: <3, 9, 10, 27, 38, 43, 82>
 
 ---
 
-## Ejemplo 18: Cliente HTTP via libcurl (load_lib)
+## Ejemplo 18: Cliente HTTP via libcurl
 
 Zeta no tiene un cliente HTTP embebido. Para hacer requests HTTP, carga `libcurl` via `load_lib` y escribe tu propio wrapper. Esto te da control total sobre timeouts, headers, autenticación, y el formato de la respuesta.
 
@@ -1440,23 +1462,7 @@ print("  status:", http_status("https://example.com"))
 
 ---
 
-## Notas sobre los ejemplos
-
-1. **Datos CSV**: los ejemplos 8, 9, 11, 15, 16 y 18 asumen que `tests/datos.csv` existe. Si no, créalo con el contenido del ejemplo 8.
-
-2. **Librería nativa**: el ejemplo 12 asume que `lib/libmatops.so` está compilada. Si no, ejecuta el comando `clang++` que aparece en la sección "Compilar" del ejemplo.
-
-3. **Servidor**: para los ejemplos con dashboard (11, 15, 16), inicia `zeta_server` en otra terminal antes de abrir el dashboard o term renderer.
-
-4. **Módulos**: el ejemplo 10 asume `lib/statslib.zl` y `lib/milibreria.zl` (ver contenido arriba).
-
-5. **Output exacto**: los floats se imprimen con 6 decimales por defecto (`5.000000` no `5`). Lo importante son los valores.
-
-6. **Recursión y lambdas**: tanto la recursión como las lambdas anónimas (`fn($x) { ... }`) funcionan correctamente. Para recursión muy profunda, considera aumentar el stack del sistema (`ulimit -s unlimited`).
-
-7. **Asignación por índice**: `$vec[i] = $valor` (vectores) y `$d["k"] = $valor` (dicts) y `$m[i, j] = $valor` (matrices) funcionan. Se puede usar para mutación in-place dentro de loops.
-
-8. **OOP**: `class`, `new`, `extends`, metodos con `$self`, y campos con `$obj.campo` / `$obj.campo = valor` funcionan. Ver Ejemplo 19.
+## OOP y módulos
 
 ---
 
@@ -1624,7 +1630,11 @@ Dot: 32
 
 ---
 
-## Ejemplo 22: Rutas HTTP definidas por el usuario
+## Web y servidores
+
+---
+
+## Ejemplo 22: Rutas HTTP personalizadas
 
 ```zeta
 # 22_routes.zl
@@ -1856,6 +1866,10 @@ print(head($df_ordenado, 3))
 
 ---
 
+## Utilidades
+
+---
+
 ## Ejemplo 26: Medición de tiempos
 
 ```zeta
@@ -1878,3 +1892,23 @@ print("Total:", format($total, 2))
 print("Promedio:", format($promedio, 2))
 print("Tiempo de procesamiento:", $t1 - $t0, "segundos")
 ```
+
+---
+
+## Notas sobre los ejemplos
+
+1. **Datos CSV**: los ejemplos 8, 9, 11, 15, 16 y 18 asumen que `tests/datos.csv` existe. Si no, créalo con el contenido del ejemplo 8.
+
+2. **Librería nativa**: el ejemplo 12 asume que `lib/libmatops.so` está compilada. Si no, ejecuta el comando `clang++` que aparece en la sección "Compilar" del ejemplo.
+
+3. **Servidor**: para los ejemplos con dashboard (11, 15, 16), inicia `zeta_server` en otra terminal antes de abrir el dashboard o term renderer.
+
+4. **Módulos**: el ejemplo 10 asume `lib/statslib.zl` y `lib/milibreria.zl` (ver contenido arriba).
+
+5. **Output exacto**: los floats se imprimen con 6 decimales por defecto (`5.000000` no `5`). Lo importante son los valores.
+
+6. **Recursión y lambdas**: tanto la recursión como las lambdas anónimas (`fn($x) { ... }`) funcionan correctamente. Para recursión muy profunda, considera aumentar el stack del sistema (`ulimit -s unlimited`).
+
+7. **Asignación por índice**: `$vec[i] = $valor` (vectores) y `$d["k"] = $valor` (dicts) y `$m[i, j] = $valor` (matrices) funcionan. Se puede usar para mutación in-place dentro de loops.
+
+8. **OOP**: `class`, `new`, `extends`, metodos con `$self`, y campos con `$obj.campo` / `$obj.campo = valor` funcionan. Ver Ejemplo 19.
