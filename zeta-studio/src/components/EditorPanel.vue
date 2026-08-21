@@ -43,8 +43,9 @@ let monacoModule: typeof import('monaco-editor') | null = null
 let modelChangeListener: IDisposable | null = null
 
 function onZetaRun() {
-  if (currentCode.value.trim()) {
-    store.exec(currentCode.value)
+  const code = monacoInstance ? monacoInstance.getValue() : currentCode.value
+  if (code && code.trim()) {
+    store.exec(code)
   }
 }
 
@@ -109,11 +110,16 @@ function attachModel(index: number) {
     file.model = monacoModule.editor.createModel(file.content, 'zeta')
     file.model.onDidChangeContent(() => {
       file.content = file.model!.getValue()
+      // Also sync to store so RunBar can access it
+      store.currentCode = file.model!.getValue()
     })
   }
 
   monacoInstance.setModel(file.model)
   monacoInstance.focus()
+
+  // Sync initial content to store IMMEDIATELY
+  store.currentCode = monacoInstance.getValue()
 
   modelChangeListener = monacoInstance.onDidChangeModelContent(() => {
     store.currentCode = monacoInstance!.getValue()
