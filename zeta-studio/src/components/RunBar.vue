@@ -7,6 +7,7 @@
       @click="toggleExecution"
       :disabled="isRunning && !canStop"
     />
+    <v-btn icon="mdi-content-save" size="small" color="primary" @click="saveFile" title="Save (Ctrl+S)" />
     <v-btn icon="mdi-delete" size="small" @click="clearOutput" title="Clear Output" />
     <v-divider vertical class="mx-2" />
     <v-chip size="small" :color="isRunning ? 'warning' : 'success'" variant="tonal">
@@ -32,6 +33,11 @@ const isRunning = ref(false)
 const canStop = ref(false)
 const elapsedTime = ref(0)
 let timer: ReturnType<typeof setInterval> | null = null
+
+function saveFile() {
+  const zeta = (window as any).__zeta
+  zeta?.saveCurrentFile?.()
+}
 
 async function toggleExecution() {
   if (isRunning.value) {

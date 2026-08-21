@@ -3,6 +3,7 @@
     <v-tabs v-model="activeTab" density="compact" color="primary" show-arrows>
       <v-tab v-for="(file, i) in openFiles" :key="file.path" :value="i">
         <span class="text-body-2">{{ file.name }}</span>
+        <v-icon v-if="file.modified" size="x-small" color="amber" class="ml-1">mdi-circle</v-icon>
         <v-icon size="small" class="ml-1" @click.stop="closeTab(i)">mdi-close</v-icon>
       </v-tab>
     </v-tabs>
@@ -37,34 +38,51 @@ const { currentFile } = storeToRefs(store)
 
 const editorContainer = ref<HTMLElement | null>(null)
 const activeTab = ref(0)
-const openFiles = ref<{ name: string; path: string; content: string; model: MonacoEditor.ITextModel | null }[]>([])
+const openFiles = ref<{
+  name: string
+  path: string
+  content: string
+  savedContent: string
+  modified: boolean
+  model: MonacoEditor.ITextModel | null
+}[]>([])
 
 let monacoInstance: MonacoEditor.IStandaloneCodeEditor | null = null
 let monacoModule: typeof import('monaco-editor') | null = null
 
 function getCode(): string {
-  return monacoInstance?.getValue() || ''
+  if (monacoInstance) {
+    return monacoInstance.getValue()
+  }
+  return ''
 }
 
-function getFilePath(): string | null {
-  const f = openFiles.value[activeTab.value]
-  return f ? f.path : null
+function updateModifiedFlag() {
+  const idx = activeTab.value
+  const file = openFiles.value[idx]
+  if (!file) return
+  const currentCode = getCode()
+  file.modified = currentCode !== file.savedContent
 }
 
 async function saveCurrentFile() {
-  const path = getFilePath()
-  const code = getCode()
-  if (!path) {
+  const idx = activeTab.value
+  const file = openFiles.value[idx]
+  if (!file) {
     store.output.push('[error] No file open to save')
     return
   }
-  if (!code) {
+  const code = getCode()
+  if (!code && code !== '') {
     store.output.push('[error] No code to save')
     return
   }
   try {
-    await invoke('write_file', { path, content: code })
-    store.output.push(`[info] Saved ${path}`)
+    await invoke('write_file', { path: file.path, content: code })
+    file.savedContent = code
+    file.content = code
+    file.modified = false
+    store.output.push(`[info] Saved ${file.path}`)
   } catch (e) {
     store.output.push(`[error] Failed to save: ${e}`)
   }
@@ -78,9 +96,6 @@ async function runCode() {
   }
   await store.exec(code)
 }
-
-// Expose to window for RunBar and keyboard shortcuts
-;(window as any).__zeta = { getCode, saveCurrentFile, runCode }
 
 onMounted(async () => {
   monacoModule = await editor.init()
@@ -101,11 +116,19 @@ onMounted(async () => {
     padding: { top: 8 },
   })
 
+  // NOW set __zeta AFTER Monaco is ready
+  ;(window as any).__zeta = { getCode, saveCurrentFile, runCode }
+
   monacoInstance.addCommand(monacoModule.KeyMod.CtrlCmd | monacoModule.KeyCode.Enter, () => {
-    ;(window as any).__zeta?.runCode()
+    runCode()
   })
   monacoInstance.addCommand(monacoModule.KeyMod.CtrlCmd | monacoModule.KeyCode.KeyS, () => {
-    ;(window as any).__zeta?.saveCurrentFile()
+    saveCurrentFile()
+  })
+
+  // Track modifications
+  monacoInstance.onDidChangeModelContent(() => {
+    updateModifiedFlag()
   })
 })
 
@@ -131,6 +154,7 @@ function attachModel(index: number) {
 
   monacoInstance.setModel(file.model)
   monacoInstance.focus()
+  updateModifiedFlag()
 }
 
 function closeTab(index: number) {
@@ -161,7 +185,15 @@ watch(currentFile, (path) => {
   const name = path.split('/').pop() || path.split('\\').pop() || path
   const existing = openFiles.value.findIndex(f => f.path === path)
   if (existing === -1) {
-    openFiles.value.push({ name, path, content: (window as any).__zeta_pending_content || '', model: null })
+    const content = (window as any).__zeta_pending_content || ''
+    openFiles.value.push({
+      name,
+      path,
+      content,
+      savedContent: content,
+      modified: false,
+      model: null,
+    })
     delete (window as any).__zeta_pending_content
     activeTab.value = openFiles.value.length - 1
   } else {
