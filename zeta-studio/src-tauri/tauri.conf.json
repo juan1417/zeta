@@ -26,13 +26,24 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "msi"],
+    "targets": ["deb", "rpm", "appimage"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "depends": ["libgtk-3-0", "libwebkit2gtk-4.1-0", "libappindicator3-1", "librsvg2-0", "patchelf"]
+      },
+      "rpm": {
+        "depends": ["gtk3", "webkit2gtk4.1", "libappindicator-gtk3", "librsvg2"]
+      }
+    },
+    "category": "Development",
+    "shortDescription": "A modern IDE for the Zeta data analysis language",
+    "longDescription": "Zeta Studio is a cross-platform IDE for the Zeta data analysis language. It features syntax highlighting, autocompletion, variable explorer, terminal, and integrated execution."
   }
 }

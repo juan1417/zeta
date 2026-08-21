@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
+use std::os::fd::AsRawFd;
 use std::process::Command;
 use std::sync::Mutex;
+use tauri::Emitter;
 use tauri::State;
 
 mod lsp_bridge;
@@ -135,8 +137,8 @@ fn create_terminal(
 
     #[cfg(unix)]
     {
-        use nix::pty::{openpty, OpenptyResult};
-        use nix::unistd::{fork, ForkResult, setsid, dup2, close};
+        use nix::pty::{openpty};
+        use nix::unistd::{fork, ForkResult, setsid, close};
         use std::ffi::CString;
 
         let pty = openpty(None, None).map_err(|e| format!("openpty failed: {}", e))?;
@@ -181,9 +183,9 @@ fn create_terminal(
                 let _ = setsid();
 
                 // Redirect pty slave to stdin/stdout/stderr
-                let _ = dup2(pty.slave, 0);
-                let _ = dup2(pty.slave, 1);
-                let _ = dup2(pty.slave, 2);
+                let _ = unsafe { libc::dup2(pty.slave.as_raw_fd(), 0) };
+                let _ = unsafe { libc::dup2(pty.slave.as_raw_fd(), 1) };
+                let _ = unsafe { libc::dup2(pty.slave.as_raw_fd(), 2) };
                 let _ = close(pty.slave);
                 let _ = close(pty.master);
 
