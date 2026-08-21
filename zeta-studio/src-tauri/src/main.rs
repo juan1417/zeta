@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
+use std::io::Read;
 use std::process::Command;
 use std::sync::Mutex;
 use tauri::State;
@@ -9,6 +10,12 @@ mod lsp_bridge;
 struct AppState {
     variables: Mutex<HashMap<String, VariableInfo>>,
     output: Mutex<Vec<String>>,
+    terminal: Mutex<Option<TerminalSession>>,
+}
+
+struct TerminalSession {
+    child_id: u32,
+    master_fd: i32,
 }
 
 #[derive(serde::Serialize, Clone, Debug)]
@@ -120,6 +127,115 @@ fn exec_code(
 }
 
 #[tauri::command]
+fn create_terminal(
+    state: State<AppState>,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
+
+    #[cfg(unix)]
+    {
+        use nix::pty::{openpty, OpenptyResult};
+        use nix::unistd::{fork, ForkResult, setsid, dup2, close};
+        use std::ffi::CString;
+
+        let pty = openpty(None, None).map_err(|e| format!("openpty failed: {}", e))?;
+
+        match unsafe { fork() } {
+            Ok(ForkResult::Parent { child }) => {
+                // Close slave side in parent
+                let _ = close(pty.slave);
+
+                let session = TerminalSession {
+                    child_id: child.as_raw() as u32,
+                    master_fd: pty.master.as_raw_fd(),
+                };
+                let mut terminal = state.terminal.lock().unwrap();
+                *terminal = Some(session);
+
+                // Spawn reader thread to forward PTY output to frontend
+                let fd = pty.master;
+                let app_handle = app.clone();
+                std::thread::spawn(move || {
+                    use std::os::unix::io::FromRawFd;
+                    // Dup the fd so the reader thread owns its own copy
+                    let dup_fd = unsafe { libc::dup(fd.as_raw_fd()) };
+                    let mut reader = unsafe { std::fs::File::from_raw_fd(dup_fd) };
+                    let mut buf = [0u8; 4096];
+                    loop {
+                        match reader.read(&mut buf) {
+                            Ok(0) => break,
+                            Ok(n) => {
+                                let data = String::from_utf8_lossy(&buf[..n]).to_string();
+                                let _ = app_handle.emit("terminal-data", &data);
+                            }
+                            Err(_) => break,
+                        }
+                    }
+                });
+
+                Ok(format!("Terminal created (PID: {})", child.as_raw()))
+            }
+            Ok(ForkResult::Child) => {
+                // Create new session
+                let _ = setsid();
+
+                // Redirect pty slave to stdin/stdout/stderr
+                let _ = dup2(pty.slave, 0);
+                let _ = dup2(pty.slave, 1);
+                let _ = dup2(pty.slave, 2);
+                let _ = close(pty.slave);
+                let _ = close(pty.master);
+
+                // Exec shell
+                let shell_cstr = CString::new(shell.clone()).unwrap();
+                let _ = std::env::set_var("TERM", "xterm-256color");
+                let _ = exec_shell(&shell_cstr);
+                std::process::exit(1);
+            }
+            Err(e) => Err(format!("fork failed: {}", e)),
+        }
+    }
+
+    #[cfg(not(unix))]
+    {
+        Err("Terminal not supported on this platform".to_string())
+    }
+}
+
+#[cfg(unix)]
+fn exec_shell(shell: &std::ffi::CString) -> Result<(), Box<dyn std::error::Error>> {
+    use nix::unistd::execvp;
+    execvp(shell, &[shell])?;
+    Ok(())
+}
+
+#[tauri::command]
+fn terminal_input(
+    data: String,
+    state: State<AppState>,
+) -> Result<(), String> {
+    let terminal = state.terminal.lock().unwrap();
+    if let Some(ref session) = *terminal {
+        let bytes = data.as_bytes();
+        let ret = unsafe {
+            libc::write(
+                session.master_fd,
+                bytes.as_ptr() as *const libc::c_void,
+                bytes.len(),
+            )
+        };
+        if ret < 0 {
+            Err(format!("write failed: {}", std::io::Error::last_os_error()))
+        } else {
+            Ok(())
+        }
+    } else {
+        Err("No terminal session active".to_string())
+    }
+}
+
+#[tauri::command]
 fn get_variables(state: State<AppState>) -> Vec<VariableInfo> {
     let vars = state.variables.lock().unwrap();
     vars.values().cloned().collect()
@@ -149,6 +265,7 @@ fn main() {
         .manage(AppState {
             variables: Mutex::new(HashMap::new()),
             output: Mutex::new(Vec::new()),
+            terminal: Mutex::new(None),
         })
         .manage(Mutex::new(lsp_bridge::LspState::new()))
         .invoke_handler(tauri::generate_handler![
@@ -157,6 +274,8 @@ fn main() {
             get_output,
             clear_output,
             get_version,
+            create_terminal,
+            terminal_input,
             lsp_bridge::lsp_initialize,
             lsp_bridge::lsp_did_open,
             lsp_bridge::lsp_did_change,
