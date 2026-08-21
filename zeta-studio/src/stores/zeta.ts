@@ -14,8 +14,12 @@ export const useZetaStore = defineStore('zeta', () => {
   const currentCode = ref<string>('')
 
   async function exec(code: string) {
+    if (!code.trim()) {
+      output.value.push('[info] No code to execute')
+      return
+    }
     try {
-      const result = await invoke<{ output: string; error: string | null }>('exec_code', { code })
+      const result = await invoke<{ success: boolean; output: string; error: string | null }>('exec_code', { code })
       if (result.output) {
         output.value.push(...result.output.split('\n').filter(Boolean))
       }
@@ -25,6 +29,16 @@ export const useZetaStore = defineStore('zeta', () => {
       await loadVariables()
     } catch (e) {
       output.value.push(`[error] ${e}`)
+    }
+  }
+
+  async function saveFile() {
+    if (!currentFile.value) return
+    try {
+      await invoke('write_file', { path: currentFile.value, content: currentCode.value })
+      output.value.push(`[info] Saved ${currentFile.value}`)
+    } catch (e) {
+      output.value.push(`[error] Failed to save: ${e}`)
     }
   }
 
@@ -45,5 +59,5 @@ export const useZetaStore = defineStore('zeta', () => {
     output.value = []
   }
 
-  return { variables, output, currentFile, currentCode, exec, loadVariables, clearOutput }
+  return { variables, output, currentFile, currentCode, exec, saveFile, loadVariables, clearOutput }
 })

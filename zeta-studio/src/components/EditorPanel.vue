@@ -1,29 +1,23 @@
 <template>
   <v-card flat tile style="height: 100%">
-    <v-tabs v-model="activeTab" density="compact" color="primary">
+    <v-tabs v-model="activeTab" density="compact" color="primary" show-arrows>
       <v-tab v-for="(file, i) in openFiles" :key="file.path" :value="i">
         <span class="text-body-2">{{ file.name }}</span>
-        <v-icon
-          size="small"
-          class="ml-1"
-          @click.stop="closeTab(i)"
-        >mdi-close</v-icon>
+        <v-icon size="small" class="ml-1" @click.stop="closeTab(i)">mdi-close</v-icon>
       </v-tab>
     </v-tabs>
-    <div
-      v-if="openFiles.length > 0"
-      ref="editorContainer"
-      style="height: calc(100% - 40px)"
-    ></div>
-    <div
-      v-else
-      class="d-flex align-center justify-center"
-      style="height: calc(100% - 40px)"
-    >
-      <div class="text-center text-medium-emphasis">
-        <v-icon size="48" class="mb-2">mdi-file-document-outline</v-icon>
-        <div class="text-body-1">No files open</div>
-        <div class="text-caption">Open a file from the explorer to start editing</div>
+    <div style="position: relative; height: calc(100% - 40px)">
+      <div ref="editorContainer" style="width: 100%; height: 100%"></div>
+      <div
+        v-if="openFiles.length === 0"
+        class="d-flex align-center justify-center"
+        style="position: absolute; inset: 0; background: #1e1e2e"
+      >
+        <div class="text-center text-medium-emphasis">
+          <v-icon size="48" class="mb-2">mdi-file-document-outline</v-icon>
+          <div class="text-body-1">No files open</div>
+          <div class="text-caption">Open or create a file from the explorer</div>
+        </div>
       </div>
     </div>
   </v-card>
@@ -48,7 +42,20 @@ let monacoInstance: MonacoEditor.IStandaloneCodeEditor | null = null
 let monacoModule: typeof import('monaco-editor') | null = null
 let modelChangeListener: IDisposable | null = null
 
+function onZetaRun() {
+  if (currentCode.value.trim()) {
+    store.exec(currentCode.value)
+  }
+}
+
+function onZetaSave() {
+  store.saveFile()
+}
+
 onMounted(async () => {
+  window.addEventListener('zeta-run', onZetaRun)
+  window.addEventListener('zeta-save', onZetaSave)
+
   monacoModule = await editor.init()
   if (!monacoModule || !editorContainer.value) return
 
@@ -78,18 +85,26 @@ onMounted(async () => {
   }
 })
 
+onBeforeUnmount(() => {
+  window.removeEventListener('zeta-run', onZetaRun)
+  window.removeEventListener('zeta-save', onZetaSave)
+  if (modelChangeListener) {
+    modelChangeListener.dispose()
+  }
+  openFiles.value.forEach(f => f.model?.dispose())
+  monacoInstance?.dispose()
+})
+
 function attachModel(index: number) {
   if (!monacoInstance || !monacoModule) return
   const file = openFiles.value[index]
   if (!file) return
 
-  // Save current model content back
   if (modelChangeListener) {
     modelChangeListener.dispose()
     modelChangeListener = null
   }
 
-  // Create model if it doesn't exist yet
   if (!file.model) {
     file.model = monacoModule.editor.createModel(file.content, 'zeta')
     file.model.onDidChangeContent(() => {
@@ -133,32 +148,16 @@ watch(activeTab, (newTab) => {
   }
 })
 
-watch(currentCode, (val) => {
-  if (monacoInstance) {
-    const currentModel = monacoInstance.getModel()
-    if (currentModel && val !== currentModel.getValue()) {
-      currentModel.setValue(val || '')
-    }
-  }
-})
-
 watch(currentFile, (path) => {
   if (!path) return
   const name = path.split('/').pop() || path.split('\\').pop() || path
   const existing = openFiles.value.findIndex(f => f.path === path)
   if (existing === -1) {
     openFiles.value.push({ name, path, content: currentCode.value || '', model: null })
+    nextTick(() => attachModel(openFiles.value.length - 1))
     activeTab.value = openFiles.value.length - 1
   } else {
     activeTab.value = existing
   }
-})
-
-onBeforeUnmount(() => {
-  if (modelChangeListener) {
-    modelChangeListener.dispose()
-  }
-  openFiles.value.forEach(f => f.model?.dispose())
-  monacoInstance?.dispose()
 })
 </script>
