@@ -34,7 +34,7 @@ import { ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 
 const emit = defineEmits<{
-  openFile: [path: string]
+  (e: 'open-file', path: string): void
 }>()
 
 interface FileInfo {
@@ -72,7 +72,7 @@ function toggleDir(file: FileInfo) {
 }
 
 function openFile(file: FileInfo) {
-  emit('openFile', file.path)
+  emit('open-file', file.path)
 }
 
 async function newFile() {
@@ -80,7 +80,7 @@ async function newFile() {
     const path = await invoke<string>('save_file_dialog', { defaultName: 'untitled.zl' })
     if (path) {
       await invoke('write_file', { path, content: '' })
-      emit('openFile', path)
+      emit('open-file', path)
       if (rootPath.value) {
         await loadDirectory(rootPath.value)
       }

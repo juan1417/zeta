@@ -78,10 +78,10 @@ onMounted(async () => {
 async function handleOpenFile(path: string) {
   try {
     const content = await invoke<string>('read_file', { path })
-    store.currentFile = path
     store.currentCode = content
+    store.currentFile = path
   } catch (e) {
-    store.output.push(`[error] Failed to open file: ${e}`)
+    console.error('Failed to open file:', e)
   }
 }
 </script>

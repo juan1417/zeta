@@ -108,9 +108,7 @@ function attachModel(index: number) {
   if (!file.model) {
     file.model = monacoModule.editor.createModel(file.content, 'zeta')
     file.model.onDidChangeContent(() => {
-      if (file.model) {
-        file.content = file.model.getValue()
-      }
+      file.content = file.model!.getValue()
     })
   }
 
@@ -118,9 +116,7 @@ function attachModel(index: number) {
   monacoInstance.focus()
 
   modelChangeListener = monacoInstance.onDidChangeModelContent(() => {
-    if (monacoInstance) {
-      store.currentCode = monacoInstance.getValue()
-    }
+    store.currentCode = monacoInstance!.getValue()
   })
 }
 
@@ -153,8 +149,12 @@ watch(currentFile, (path) => {
   const name = path.split('/').pop() || path.split('\\').pop() || path
   const existing = openFiles.value.findIndex(f => f.path === path)
   if (existing === -1) {
-    openFiles.value.push({ name, path, content: currentCode.value || '', model: null })
-    nextTick(() => attachModel(openFiles.value.length - 1))
+    openFiles.value.push({
+      name,
+      path,
+      content: currentCode.value || '',
+      model: null
+    })
     activeTab.value = openFiles.value.length - 1
   } else {
     activeTab.value = existing
