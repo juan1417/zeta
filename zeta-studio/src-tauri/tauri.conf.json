@@ -1,0 +1,32 @@
+{
+  "productName": "Zeta Studio",
+  "identifier": "com.zeta.studio",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Zeta Studio",
+        "width": 1200,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "fs": {
+      "scope": {
+        "allow": ["**"]
+      }
+    },
+    "dialog": {
+      "all": true
+    }
+  }
+}
