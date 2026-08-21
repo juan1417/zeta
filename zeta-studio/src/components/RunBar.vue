@@ -47,14 +47,18 @@ function startExecution() {
   timer = setInterval(() => {
     elapsedTime.value++
   }, 1000)
-  store.exec(store.currentCode)
-    .finally(() => {
-      isRunning.value = false
-      if (timer) {
-        clearInterval(timer)
-        timer = null
-      }
-    })
+  
+  // Dispatch event so EditorPanel.onZetaRun handles it (reads from Monaco directly)
+  window.dispatchEvent(new CustomEvent('zeta-run'))
+  
+  // Auto-set isRunning to false after a delay since we can't await the event
+  setTimeout(() => {
+    isRunning.value = false
+    if (timer) {
+      clearInterval(timer)
+      timer = null
+    }
+  }, 500)
 }
 
 function stopExecution() {

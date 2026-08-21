@@ -33,7 +33,14 @@ export const useZetaStore = defineStore('zeta', () => {
   }
 
   async function saveFile() {
-    if (!currentFile.value) return
+    if (!currentFile.value) {
+      output.value.push('[error] No file open to save')
+      return
+    }
+    if (!currentCode.value) {
+      output.value.push('[error] No code to save')
+      return
+    }
     try {
       await invoke('write_file', { path: currentFile.value, content: currentCode.value })
       output.value.push(`[info] Saved ${currentFile.value}`)
