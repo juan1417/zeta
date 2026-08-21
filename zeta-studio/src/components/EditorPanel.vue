@@ -26,13 +26,14 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import editor from '@monaco-editor/loader'
-import type { editor as MonacoEditor, IDisposable } from 'monaco-editor'
+import type { editor as MonacoEditor } from 'monaco-editor'
+import { invoke } from '@tauri-apps/api/core'
 import { useZetaStore } from '../stores/zeta'
 import { storeToRefs } from 'pinia'
 import { zetaLanguage, zetaMonarch } from '../zeta-language'
 
 const store = useZetaStore()
-const { currentFile, currentCode } = storeToRefs(store)
+const { currentFile } = storeToRefs(store)
 
 const editorContainer = ref<HTMLElement | null>(null)
 const activeTab = ref(0)
@@ -40,23 +41,48 @@ const openFiles = ref<{ name: string; path: string; content: string; model: Mona
 
 let monacoInstance: MonacoEditor.IStandaloneCodeEditor | null = null
 let monacoModule: typeof import('monaco-editor') | null = null
-let modelChangeListener: IDisposable | null = null
 
-function onZetaRun() {
-  const code = monacoInstance ? monacoInstance.getValue() : currentCode.value
-  if (code && code.trim()) {
-    store.exec(code)
+function getCode(): string {
+  return monacoInstance?.getValue() || ''
+}
+
+function getFilePath(): string | null {
+  const f = openFiles.value[activeTab.value]
+  return f ? f.path : null
+}
+
+async function saveCurrentFile() {
+  const path = getFilePath()
+  const code = getCode()
+  if (!path) {
+    store.output.push('[error] No file open to save')
+    return
+  }
+  if (!code) {
+    store.output.push('[error] No code to save')
+    return
+  }
+  try {
+    await invoke('write_file', { path, content: code })
+    store.output.push(`[info] Saved ${path}`)
+  } catch (e) {
+    store.output.push(`[error] Failed to save: ${e}`)
   }
 }
 
-function onZetaSave() {
-  store.saveFile()
+async function runCode() {
+  const code = getCode()
+  if (!code.trim()) {
+    store.output.push('[info] No code to execute')
+    return
+  }
+  await store.exec(code)
 }
 
-onMounted(async () => {
-  window.addEventListener('zeta-run', onZetaRun)
-  window.addEventListener('zeta-save', onZetaSave)
+// Expose to window for RunBar and keyboard shortcuts
+;(window as any).__zeta = { getCode, saveCurrentFile, runCode }
 
+onMounted(async () => {
   monacoModule = await editor.init()
   if (!monacoModule || !editorContainer.value) return
 
@@ -75,25 +101,18 @@ onMounted(async () => {
     padding: { top: 8 },
   })
 
-  if (monacoInstance) {
-    monacoInstance.addCommand(monacoModule.KeyMod.CtrlCmd | monacoModule.KeyCode.Enter, () => {
-      window.dispatchEvent(new CustomEvent('zeta-run'))
-    })
-
-    monacoInstance.addCommand(monacoModule.KeyMod.CtrlCmd | monacoModule.KeyCode.KeyS, () => {
-      window.dispatchEvent(new CustomEvent('zeta-save'))
-    })
-  }
+  monacoInstance.addCommand(monacoModule.KeyMod.CtrlCmd | monacoModule.KeyCode.Enter, () => {
+    ;(window as any).__zeta?.runCode()
+  })
+  monacoInstance.addCommand(monacoModule.KeyMod.CtrlCmd | monacoModule.KeyCode.KeyS, () => {
+    ;(window as any).__zeta?.saveCurrentFile()
+  })
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('zeta-run', onZetaRun)
-  window.removeEventListener('zeta-save', onZetaSave)
-  if (modelChangeListener) {
-    modelChangeListener.dispose()
-  }
   openFiles.value.forEach(f => f.model?.dispose())
   monacoInstance?.dispose()
+  delete (window as any).__zeta
 })
 
 function attachModel(index: number) {
@@ -101,29 +120,17 @@ function attachModel(index: number) {
   const file = openFiles.value[index]
   if (!file) return
 
-  if (modelChangeListener) {
-    modelChangeListener.dispose()
-    modelChangeListener = null
-  }
-
   if (!file.model) {
     file.model = monacoModule.editor.createModel(file.content, 'zeta')
     file.model.onDidChangeContent(() => {
-      file.content = file.model!.getValue()
-      // Also sync to store so RunBar can access it
-      store.currentCode = file.model!.getValue()
+      if (file.model) {
+        file.content = file.model.getValue()
+      }
     })
   }
 
   monacoInstance.setModel(file.model)
   monacoInstance.focus()
-
-  // Sync initial content to store IMMEDIATELY
-  store.currentCode = monacoInstance.getValue()
-
-  modelChangeListener = monacoInstance.onDidChangeModelContent(() => {
-    store.currentCode = monacoInstance!.getValue()
-  })
 }
 
 function closeTab(index: number) {
@@ -134,7 +141,6 @@ function closeTab(index: number) {
   openFiles.value.splice(index, 1)
 
   if (openFiles.value.length === 0) {
-    store.currentCode = ''
     store.currentFile = null
     return
   }
@@ -155,12 +161,8 @@ watch(currentFile, (path) => {
   const name = path.split('/').pop() || path.split('\\').pop() || path
   const existing = openFiles.value.findIndex(f => f.path === path)
   if (existing === -1) {
-    openFiles.value.push({
-      name,
-      path,
-      content: currentCode.value || '',
-      model: null
-    })
+    openFiles.value.push({ name, path, content: (window as any).__zeta_pending_content || '', model: null })
+    delete (window as any).__zeta_pending_content
     activeTab.value = openFiles.value.length - 1
   } else {
     activeTab.value = existing

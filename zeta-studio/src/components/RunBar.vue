@@ -37,28 +37,31 @@ async function toggleExecution() {
   if (isRunning.value) {
     stopExecution()
   } else {
-    startExecution()
+    await startExecution()
   }
 }
 
-function startExecution() {
+async function startExecution() {
   isRunning.value = true
   elapsedTime.value = 0
-  timer = setInterval(() => {
-    elapsedTime.value++
-  }, 1000)
-  
-  // Dispatch event so EditorPanel.onZetaRun handles it (reads from Monaco directly)
-  window.dispatchEvent(new CustomEvent('zeta-run'))
-  
-  // Auto-set isRunning to false after a delay since we can't await the event
-  setTimeout(() => {
+  timer = setInterval(() => { elapsedTime.value++ }, 1000)
+
+  const zeta = (window as any).__zeta
+  const code = zeta?.getCode?.() || ''
+
+  if (!code.trim()) {
+    store.output.push('[info] No code to execute')
     isRunning.value = false
-    if (timer) {
-      clearInterval(timer)
-      timer = null
-    }
-  }, 500)
+    if (timer) { clearInterval(timer); timer = null }
+    return
+  }
+
+  try {
+    await store.exec(code)
+  } finally {
+    isRunning.value = false
+    if (timer) { clearInterval(timer); timer = null }
+  }
 }
 
 function stopExecution() {

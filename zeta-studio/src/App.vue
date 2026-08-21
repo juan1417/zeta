@@ -78,7 +78,7 @@ onMounted(async () => {
 async function handleOpenFile(path: string) {
   try {
     const content = await invoke<string>('read_file', { path })
-    store.currentCode = content
+    ;(window as any).__zeta_pending_content = content
     store.currentFile = path
   } catch (e) {
     console.error('Failed to open file:', e)
