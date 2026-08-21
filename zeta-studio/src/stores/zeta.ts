@@ -30,7 +30,12 @@ export const useZetaStore = defineStore('zeta', () => {
 
   async function loadVariables() {
     try {
-      variables.value = await invoke<Record<string, VariableInfo>>('get_variables')
+      const arr = await invoke<Array<{ name: string; var_type: string; value: string }>>('get_variables')
+      const record: Record<string, VariableInfo> = {}
+      for (const v of arr) {
+        record[v.name] = { type: v.var_type, value: v.value }
+      }
+      variables.value = record
     } catch {
       // silently ignore if backend not ready
     }
