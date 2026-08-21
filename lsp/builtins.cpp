@@ -4,169 +4,167 @@ namespace zeta_lsp {
 
 BuiltinRegistry::BuiltinRegistry() {
     builtins_ = {
-        // Null/Error checks
-        {"is_null", {{"x", "any"}}, "bool", "Check if a value is null (NaN)", "$x | is_null()"},
-        {"fill_null", {{"val", "any"}, {"default", "any"}}, "any", "Replace null values with a default", "$data | fill_null(0)"},
-        {"is_error", {{"x", "any"}}, "bool", "Check if a value is an error", "$result | is_error()"},
-
         // Statistics
-        {"mean", {{"data", "Collection"}}, "number", "Arithmetic mean of a collection", "$df:salary | mean()"},
-        {"count", {{"data", "Collection"}}, "number", "Count non-null elements", "$df:name | count()"},
-        {"sum", {{"data", "Collection"}}, "number", "Sum all values", "$df:sales | sum()"},
-        {"min", {{"data", "Collection"}}, "number", "Minimum value", "$df:score | min()"},
-        {"max", {{"data", "Collection"}}, "number", "Maximum value", "$df:score | max()"},
-        {"stddev", {{"data", "Collection"}}, "number", "Standard deviation", "$df:salary | stddev()"},
+        {"sum", {{"vec", "vector"}}, "number", "Sum all values in a vector", "sum(<1,2,3>)"},
+        {"mean", {{"vec", "vector"}}, "number", "Calculate mean of a vector", "mean(<1,2,3,4,5>)"},
+        {"min", {{"vec", "vector"}}, "number", "Find minimum value in a vector", "min(<3,1,2>)"},
+        {"max", {{"vec", "vector"}}, "number", "Find maximum value in a vector", "max(<3,1,2>)"},
+        {"stddev", {{"vec", "vector"}}, "number", "Calculate standard deviation of a vector", "stddev(<1,2,3,4,5>)"},
+        {"count", {{"vec", "vector"}}, "number", "Count non-null values in a vector", "count(<1,2,3>)"},
+        {"median", {{"vec", "vector"}}, "number", "Calculate median of a vector", "median(<1,2,3,4,5>)"},
+        {"percentile", {{"vec", "vector"}, {"p", "number"}}, "number", "Calculate percentile of a vector", "percentile(<1,2,3,4,5>, 50)"},
+        {"mode", {{"vec", "vector"}}, "number", "Find mode (most frequent value) of a vector", "mode(<1,2,2,3>)"},
+        {"cor", {{"x", "vector"}, {"y", "vector"}}, "number", "Calculate Pearson correlation between two vectors", "cor(<1,2,3>, <4,5,6>)"},
+        {"cov", {{"x", "vector"}, {"y", "vector"}}, "number", "Calculate covariance between two vectors", "cov(<1,2,3>, <4,5,6>)"},
 
         // Math
-        {"abs", {{"x", "number"}}, "number", "Absolute value", "abs(-5)"},
-        {"round", {{"x", "number"}}, "number", "Round to nearest integer", "round(3.7)"},
-        {"floor", {{"x", "number"}}, "number", "Round down", "floor(3.7)"},
-        {"ceil", {{"x", "number"}}, "number", "Round up", "ceil(3.2)"},
-        {"pow", {{"base", "number"}, {"exp", "number"}}, "number", "Power", "pow(2, 3)"},
-        {"sqrt", {{"x", "number"}}, "number", "Square root", "sqrt(16)"},
-        {"format", {{"x", "number"}, {"decimals", "number"}}, "string", "Format number with decimals", "format(3.14159, 2)"},
+        {"abs", {{"x", "number"}}, "number", "Absolute value of a number", "abs(-5)"},
+        {"round", {{"x", "number"}}, "number", "Round a number to nearest integer", "round(3.7)"},
+        {"floor", {{"x", "number"}}, "number", "Floor a number (round down)", "floor(3.7)"},
+        {"ceil", {{"x", "number"}}, "number", "Ceiling a number (round up)", "ceil(3.2)"},
+        {"pow", {{"base", "number"}, {"exp", "number"}}, "number", "Raise base to exponent", "pow(2, 3)"},
+        {"sqrt", {{"x", "number"}}, "number", "Square root of a number", "sqrt(9)"},
+        {"format", {{"x", "number"}, {"decimals", "number"}}, "string", "Format a number with specified decimal places", "format(3.14159, 2)"},
 
-        // Time
-        {"time", {}, "number", "Current time in seconds", "time()"},
+        // Strings
+        {"len", {{"s", "any"}}, "number", "Get length of string or vector", "len(\"hello\")"},
+        {"upper", {{"s", "string"}}, "string", "Convert string to uppercase", "upper(\"hello\")"},
+        {"lower", {{"s", "string"}}, "string", "Convert string to lowercase", "lower(\"HELLO\")"},
+        {"substr", {{"s", "string"}, {"start", "number"}, {"end", "number", true}}, "string", "Extract substring from string", "substr(\"hello\", 1, 3)"},
+        {"split", {{"s", "string"}, {"delimiter", "string"}}, "vector<string>", "Split string by delimiter", "split(\"a,b,c\", \",\")"},
+        {"join", {{"vec", "vector<string>"}, {"separator", "string"}}, "string", "Join vector of strings with separator", "join(<\"a\",\"b\",\"c\">, \",\")"},
+        {"replace", {{"s", "string"}, {"old", "string"}, {"new", "string"}}, "string", "Replace occurrences in string", "replace(\"hello world\", \"world\", \"zeta\")"},
+        {"find", {{"s", "string"}, {"substr", "string"}}, "number", "Find position of substring in string", "find(\"hello world\", \"world\")"},
 
-        // String
-        {"len", {{"x", "string|vector|dict"}}, "number", "Length of string, vector, or dict", "len($name)"},
-        {"upper", {{"s", "string"}}, "string", "Uppercase string", "upper($name)"},
-        {"lower", {{"s", "string"}}, "string", "Lowercase string", "lower($name)"},
-        {"substr", {{"s", "string"}, {"start", "number"}, {"len", "number", true}}, "string", "Extract substring", "substr($name, 0, 3)"},
-        {"split", {{"s", "string"}, {"sep", "string"}}, "vector<string>", "Split string by separator", "split($csv_line, \",\")"},
-        {"join", {{"vec", "vector<string>"}, {"sep", "string"}}, "string", "Join strings with separator", "join($words, \" \")"},
-        {"replace", {{"s", "string"}, {"old", "string"}, {"new", "string"}}, "string", "Replace substring", "replace($text, \"a\", \"b\")"},
-        {"find", {{"s", "string"}, {"sub", "string"}}, "number", "Find position of substring (or -1)", "find($text, \"hello\")"},
+        // Vectors
+        {"push", {{"vec", "vector"}, {"val", "number"}}, "vector", "Add element to end of vector", "push(<1,2>, 3)"},
+        {"reverse", {{"vec", "vector"}}, "vector", "Reverse a vector", "reverse(<1,2,3>)"},
+        {"sort", {{"vec", "vector"}}, "vector", "Sort a vector in ascending order", "sort(<3,1,2>)"},
+        {"unique", {{"vec", "vector"}}, "vector", "Get unique values from a vector", "unique(<1,2,2,3,3>)"},
+        {"range", {{"start", "number"}, {"end", "number", true}, {"step", "number", true}}, "vector", "Generate a sequence of numbers", "range(1, 10, 2)"},
 
-        // Vector
-        {"reverse", {{"vec", "vector"}}, "vector", "Reverse a vector", "reverse($data)"},
-        {"sort", {{"vec", "vector"}}, "vector", "Sort a vector", "sort($scores)"},
-        {"unique", {{"vec", "vector"}}, "vector", "Remove duplicates", "unique($tags)"},
-        {"push", {{"vec", "vector"}, {"val", "number"}}, "vector", "Append element to vector", "push($list, 42)"},
-        {"range", {{"start", "number"}, {"end", "number", true}, {"step", "number", true}}, "vector", "Generate numeric range", "range(1, 10)"},
-        {"map", {{"vec", "vector"}, {"fn", "function"}}, "vector", "Apply function to each element", "map($data, fn($x) $x * 2)"},
-        {"filter", {{"vec", "vector"}, {"fn", "function"}}, "vector", "Filter elements by predicate", "filter($data, fn($x) $x > 0)"},
-        {"reduce", {{"vec", "vector"}, {"fn", "function"}, {"init", "any"}}, "any", "Reduce vector to single value", "reduce($data, fn($a, $b) $a + $b, 0)"},
+        // Dictionaries
+        {"keys", {{"d", "dict"}}, "vector<string>", "Get all keys from a dictionary", "keys({\"a\": 1, \"b\": 2})"},
+        {"values", {{"d", "dict"}}, "vector", "Get all values from a dictionary", "values({\"a\": 1, \"b\": 2})"},
 
-        // Dict
-        {"keys", {{"d", "dict"}}, "vector<string>", "Get dictionary keys", "keys($config)"},
-        {"values", {{"d", "dict"}}, "vector", "Get dictionary values", "values($config)"},
-
-        // Type
-        {"type", {{"x", "any"}}, "string", "Get type name of a value", "type($data)"},
-
-        // Matrix
-        {"transpose", {{"m", "matrix"}}, "matrix", "Transpose a matrix", "transpose($m)"},
-        {"dot", {{"a", "vector"}, {"b", "vector"}}, "number", "Dot product of two vectors", "dot($x, $y)"},
-
-        // DataFrame
-        {"head", {{"df", "DataFrame|vector"}, {"n", "number", true}}, "DataFrame|vector", "First N elements (default 5)", "head($df)"},
-        {"select", {{"df", "DataFrame"}, {"col", "string"}}, "vector", "Select a column from DataFrame", "select($df, \"name\")"},
+        // DataFrames
+        {"head", {{"df", "DataFrame|vector"}, {"n", "number", true}}, "DataFrame|vector", "Get first n rows of DataFrame or vector", "head($df, 5)"},
+        {"select", {{"df", "DataFrame"}, {"col", "string"}}, "vector", "Select a column from DataFrame", "select($df, \"age\")"},
         {"drop", {{"df", "DataFrame"}, {"col", "string"}}, "DataFrame", "Drop a column from DataFrame", "drop($df, \"id\")"},
-        {"drop_nan", {{"df", "DataFrame"}, {"col", "string"}}, "DataFrame", "Drop rows with null in column", "drop_nan($df, \"age\")"},
-        {"group_by", {{"df", "DataFrame"}, {"col", "string", true}}, "dict", "Group DataFrame by column(s)", "group_by($df, \"region\")"},
-        {"agg", {{"grouped", "dict"}, {"col", "string"}, {"func", "string"}}, "DataFrame", "Aggregate grouped data", "agg($grouped, \"sales\", \"sum\")"},
-        {"merge", {{"left", "DataFrame"}, {"right", "DataFrame"}, {"on", "string"}}, "DataFrame", "Inner join two DataFrames", "merge($a, $b, \"id\")"},
+        {"drop_nan", {{"df", "DataFrame"}, {"col", "string"}}, "DataFrame", "Drop rows with NaN in specified column", "drop_nan($df, \"age\")"},
+        {"group_by", {{"df", "DataFrame"}, {"cols", "vector<string>"}}, "dict", "Group DataFrame by column(s)", "group_by($df, <\"category\">)"},
+        {"agg", {{"groups", "dict"}, {"col", "string"}, {"fn", "string"}}, "DataFrame", "Aggregate grouped data with function", "agg($groups, \"sales\", \"sum\")"},
+        {"merge", {{"df1", "DataFrame"}, {"df2", "DataFrame"}, {"on", "string"}}, "DataFrame", "Merge two DataFrames on column", "merge($df1, $df2, \"id\")"},
 
-        // Exploration / Data Quality
-        {"info", {{"df", "DataFrame"}}, "string", "Show DataFrame info: columns, types, nulls", "info($df)"},
-        {"describe", {{"df", "DataFrame"}}, "string", "Statistical summary of numeric columns", "describe($df)"},
-        {"tail", {{"df", "DataFrame|vector"}, {"n", "number", true}}, "DataFrame|vector", "Last N elements (default 5)", "tail($df)"},
-        {"sample", {{"df", "DataFrame"}, {"n", "number", true}}, "DataFrame", "Random sample of N rows (default 5)", "sample($df)"},
-        {"value_counts", {{"vec", "vector|vector<string>"}}, "DataFrame", "Frequency counts of each value", "value_counts($df:col)"},
-        {"nunique", {{"vec", "vector|vector<string>"}}, "number", "Count of unique values", "nunique($df:col)"},
-        {"median", {{"data", "vector"}}, "number", "Median value", "$df:salary | median()"},
-        {"percentile", {{"data", "vector"}, {"q", "number"}}, "number", "Percentile (0-100)", "percentile($scores, 75)"},
-        {"mode", {{"data", "vector"}}, "number", "Most frequent value", "mode($df:dept)"},
-        {"cor", {{"x", "vector"}, {"y", "vector"}}, "number", "Pearson correlation", "cor($df:age, $df:score)"},
-        {"cov", {{"x", "vector"}, {"y", "vector"}}, "number", "Covariance", "cov($df:x, $df:y)"},
-        {"isna", {{"df", "DataFrame|vector"}}, "DataFrame|vector<bool>", "True where null", "isna($df)"},
-        {"duplicated", {{"vec", "vector|vector<string>"}}, "vector<bool>", "True where duplicate", "duplicated($df:id)"},
-        {"cut", {{"vec", "vector"}, {"bins", "number"}}, "vector", "Discretize into N bins", "cut($df:age, 5)"},
-        {"qcut", {{"vec", "vector"}, {"q", "number"}}, "vector", "Discretize into q quantiles", "qcut($df:age, 4)"},
-
-        // Data Cleaning
-        {"drop_duplicates", {{"df", "DataFrame"}}, "DataFrame", "Remove duplicate rows", "drop_duplicates($df)"},
-        {"rename", {{"df", "DataFrame"}, {"old", "string"}, {"new", "string"}}, "DataFrame", "Rename column", "rename($df, \"old\", \"new\")"},
-        {"select_cols", {{"df", "DataFrame"}, {"cols", "vector<string>"}}, "DataFrame", "Select multiple columns", "select_cols($df, <\"a\",\"b\">)"},
-        {"drop_cols", {{"df", "DataFrame"}, {"cols", "vector<string>"}}, "DataFrame", "Drop multiple columns", "drop_cols($df, <\"a\",\"b\">)"},
-        {"fillna", {{"vec", "vector"}, {"strategy", "string|number"}}, "vector", "Fill nulls (mean/median/mode/ffill/bfill/zero/value)", "fillna($col, \"mean\")"},
-        {"replace_val", {{"df", "DataFrame"}, {"col", "string"}, {"old", "string"}, {"new", "string"}}, "DataFrame", "Replace values in column", "replace_val($df, \"dept\", \"IT\", \"Tech\")"},
-        {"clip", {{"vec", "vector"}, {"min", "number"}, {"max", "number"}}, "vector", "Clip values to range", "clip($scores, 0, 100)"},
-        {"trim", {{"vec", "vector"}, {"std", "number"}}, "vector", "Remove outliers by std dev", "trim($scores, 3)"},
-        {"normalize", {{"vec", "vector"}}, "vector", "Normalize to 0-1 range", "normalize($scores)"},
-        {"standardize", {{"vec", "vector"}}, "vector", "Standardize to z-score", "standardize($scores)"},
+        // Exploration
+        {"info", {{"df", "DataFrame"}}, "string", "Get DataFrame information (columns, types, non-null counts)", "info($df)"},
+        {"describe", {{"df", "DataFrame"}}, "string", "Get descriptive statistics for DataFrame", "describe($df)"},
+        {"tail", {{"df", "DataFrame|vector"}, {"n", "number", true}}, "DataFrame|vector", "Get last n rows of DataFrame or vector", "tail($df, 5)"},
+        {"sample", {{"df", "DataFrame"}, {"n", "number", true}}, "DataFrame", "Random sample of n rows from DataFrame", "sample($df, 100)"},
+        {"value_counts", {{"vec", "vector"}}, "DataFrame", "Count occurrences of each value in vector", "value_counts(<1,1,2,3,3,3>)"},
+        {"nunique", {{"vec", "vector"}}, "number", "Count number of unique values in vector", "nunique(<1,2,2,3>)"},
+        {"isna", {{"df", "DataFrame|vector"}}, "DataFrame|vector", "Check for NaN values in DataFrame or vector", "isna($df)"},
+        {"duplicated", {{"vec", "vector"}}, "vector", "Find duplicate values in vector", "duplicated(<1,2,2,3>)"},
+        {"cut", {{"vec", "vector"}, {"bins", "number"}}, "vector", "Bin continuous values into discrete intervals", "cut(<1,2,3,4,5>, 3)"},
+        {"qcut", {{"vec", "vector"}, {"quantiles", "number"}}, "vector", "Bin continuous values into quantile-based intervals", "qcut(<1,2,3,4,5>, 4)"},
 
         // Distributions
-        {"dnorm", {{"x", "number"}, {"mean", "number", true}, {"sd", "number", true}}, "number", "Normal density", "dnorm(0)"},
-        {"pnorm", {{"x", "number"}, {"mean", "number", true}, {"sd", "number", true}}, "number", "Normal CDF", "pnorm(1.96)"},
-        {"qnorm", {{"p", "number"}, {"mean", "number", true}, {"sd", "number", true}}, "number", "Normal quantile", "qnorm(0.975)"},
-        {"dgamma", {{"x", "number"}, {"shape", "number"}, {"rate", "number"}}, "number", "Gamma density", "dgamma(1, 2, 1)"},
-        {"dbeta", {{"x", "number"}, {"alpha", "number"}, {"beta", "number"}}, "number", "Beta density", "dbeta(0.5, 2, 2)"},
-        {"dunif", {{"x", "number"}, {"min", "number", true}, {"max", "number", true}}, "number", "Uniform density", "dunif(0.5)"},
-        {"dt_dist", {{"x", "number"}, {"df", "number"}}, "number", "Student's t density", "dt_dist(0, 10)"},
-        {"df_dist", {{"x", "number"}, {"df1", "number"}, {"df2", "number"}}, "number", "F density", "df_dist(1, 5, 10)"},
-        {"dchisq", {{"x", "number"}, {"df", "number"}}, "number", "Chi-squared density", "dchisq(2, 3)"},
+        {"dnorm", {{"x", "number"}, {"mean", "number", true}, {"sd", "number", true}}, "number", "Normal distribution density function", "dnorm(0)"},
+        {"pnorm", {{"x", "number"}, {"mean", "number", true}, {"sd", "number", true}}, "number", "Normal distribution cumulative distribution function", "pnorm(1.96)"},
+        {"qnorm", {{"p", "number"}, {"mean", "number", true}, {"sd", "number", true}}, "number", "Normal distribution quantile function (inverse CDF)", "qnorm(0.975)"},
+        {"dgamma", {{"x", "number"}, {"shape", "number"}, {"rate", "number"}}, "number", "Gamma distribution density function", "dgamma(1, 2, 1)"},
+        {"dbeta", {{"x", "number"}, {"alpha", "number"}, {"beta", "number"}}, "number", "Beta distribution density function", "dbeta(0.5, 2, 2)"},
+        {"dunif", {{"x", "number"}, {"min", "number", true}, {"max", "number", true}}, "number", "Uniform distribution density function", "dunif(0.5)"},
+        {"dt_dist", {{"x", "number"}, {"df", "number"}}, "number", "Student's t-distribution density function", "dt_dist(0, 10)"},
+        {"df_dist", {{"x", "number"}, {"df1", "number"}, {"df2", "number"}}, "number", "F-distribution density function", "df_dist(1, 5, 10)"},
+        {"dchisq", {{"x", "number"}, {"df", "number"}}, "number", "Chi-squared distribution density function", "dchisq(2, 3)"},
 
         // Statistical Tests
-        {"t_test", {{"sample1", "vector"}, {"sample2", "vector"}}, "dict", "Two-sample t-test", "t_test($a, $b)"},
-        {"anova", {{"group1", "vector"}, {"group2", "vector"}, {"rest", "vector", true}}, "dict", "One-way ANOVA", "anova($g1, $g2, $g3)"},
-        {"chi_square", {{"observed", "vector"}, {"expected", "vector"}}, "dict", "Chi-squared test", "chi_square($obs, $exp)"},
+        {"t_test", {{"x", "vector"}, {"y", "vector"}}, "dict", "Two-sample t-test", "t_test(<1,2,3>, <4,5,6>)"},
+        {"anova", {{"x", "vector"}, {"y", "vector"}, {"rest", "vector", true}}, "dict", "One-way ANOVA test", "anova(<1,2>, <3,4>, <5,6>)"},
+        {"chi_square", {{"observed", "vector"}, {"expected", "vector"}}, "dict", "Chi-squared test of independence", "chi_square(<10,20>, <15,15>)"},
 
         // Regression
-        {"linear_regression", {{"x", "vector"}, {"y", "vector"}}, "dict", "Simple linear regression", "linear_regression($x, $y)"},
+        {"linear_regression", {{"x", "vector"}, {"y", "vector"}}, "dict", "Simple linear regression", "linear_regression(<1,2,3>, <2,4,5>)"},
 
         // Window Functions
-        {"cumsum", {{"vec", "vector"}}, "vector", "Cumulative sum", "cumsum($sales)"},
-        {"cummax", {{"vec", "vector"}}, "vector", "Cumulative max", "cummax($temps)"},
-        {"cummin", {{"vec", "vector"}}, "vector", "Cumulative min", "cummin($temps)"},
-        {"rolling_mean", {{"vec", "vector"}, {"window", "number"}}, "vector", "Rolling mean", "rolling_mean($sales, 7)"},
-        {"rolling_std", {{"vec", "vector"}, {"window", "number"}}, "vector", "Rolling std dev", "rolling_std($sales, 7)"},
-        {"rolling_sum", {{"vec", "vector"}, {"window", "number"}}, "vector", "Rolling sum", "rolling_sum($sales, 7)"},
-        {"rolling_min", {{"vec", "vector"}, {"window", "number"}}, "vector", "Rolling min", "rolling_min($temps, 24)"},
-        {"rolling_max", {{"vec", "vector"}, {"window", "number"}}, "vector", "Rolling max", "rolling_max($temps, 24)"},
-        {"lag", {{"vec", "vector"}, {"n", "number"}}, "vector", "Previous n values", "lag($sales, 1)"},
-        {"lead", {{"vec", "vector"}, {"n", "number"}}, "vector", "Next n values", "lead($sales, 1)"},
-        {"diff", {{"vec", "vector"}, {"n", "number"}}, "vector", "Difference with previous n", "diff($sales, 1)"},
-        {"row_number", {{"vec", "vector"}}, "vector", "Sequential row number (1,2,3...)", "row_number($sales)"},
-        {"rank", {{"vec", "vector"}}, "vector", "Rank with ties", "rank($scores)"},
-        {"pct_change", {{"vec", "vector"}, {"n", "number"}}, "vector", "Percent change vs previous n", "pct_change($sales, 1)"},
+        {"cumsum", {{"vec", "vector"}}, "vector", "Cumulative sum of vector", "cumsum(<1,2,3>)"},
+        {"cummax", {{"vec", "vector"}}, "vector", "Cumulative maximum of vector", "cummax(<3,1,4,1,5>)"},
+        {"cummin", {{"vec", "vector"}}, "vector", "Cumulative minimum of vector", "cummin(<3,1,4,1,5>)"},
+        {"rolling_mean", {{"vec", "vector"}, {"window", "number"}}, "vector", "Rolling mean over a window", "rolling_mean(<1,2,3,4,5>, 3)"},
+        {"rolling_std", {{"vec", "vector"}, {"window", "number"}}, "vector", "Rolling standard deviation over a window", "rolling_std(<1,2,3,4,5>, 3)"},
+        {"rolling_sum", {{"vec", "vector"}, {"window", "number"}}, "vector", "Rolling sum over a window", "rolling_sum(<1,2,3,4,5>, 3)"},
+        {"rolling_min", {{"vec", "vector"}, {"window", "number"}}, "vector", "Rolling minimum over a window", "rolling_min(<3,1,4,1,5>, 3)"},
+        {"rolling_max", {{"vec", "vector"}, {"window", "number"}}, "vector", "Rolling maximum over a window", "rolling_max(<3,1,4,1,5>, 3)"},
+        {"lag", {{"vec", "vector"}, {"n", "number"}}, "vector", "Shift values forward by n positions", "lag(<1,2,3,4>, 1)"},
+        {"lead", {{"vec", "vector"}, {"n", "number"}}, "vector", "Shift values backward by n positions", "lead(<1,2,3,4>, 1)"},
+        {"diff", {{"vec", "vector"}, {"n", "number", true}}, "vector", "Difference between consecutive values", "diff(<1,3,6,10>)"},
+        {"row_number", {{"vec", "vector"}}, "vector", "Assign row numbers to vector", "row_number(<5,3,1,4>)"},
+        {"rank", {{"vec", "vector"}}, "vector", "Assign ranks to values in vector", "rank(<5,3,1,4>)"},
+        {"pct_change", {{"vec", "vector"}, {"n", "number", true}}, "vector", "Percentage change between values", "pct_change(<100,110,105>)"},
 
-        // I/O
-        {"load_csv", {{"path", "string"}, {"delim", "string", true}}, "DataFrame", "Load CSV file into DataFrame", "load_csv(\"data.csv\")"},
-        {"load_json", {{"path", "string"}}, "DataFrame", "Load JSON array as DataFrame", "load_json(\"data.json\")"},
-        {"load_xlsx", {{"path", "string"}, {"sheet", "number", true}}, "DataFrame", "Load Excel file", "load_xlsx(\"data.xlsx\")"},
-        {"save_csv", {{"path", "string"}, {"df", "DataFrame"}, {"delim", "string", true}}, "null", "Save DataFrame as CSV", "save_csv(\"out.csv\", $df)"},
-        {"save_xlsx", {{"path", "string"}, {"df", "DataFrame"}}, "null", "Save DataFrame as Excel", "save_xlsx(\"out.xlsx\", $df)"},
+        // Data Cleaning
+        {"drop_duplicates", {{"df", "DataFrame"}}, "DataFrame", "Remove duplicate rows from DataFrame", "drop_duplicates($df)"},
+        {"rename", {{"df", "DataFrame"}, {"old", "string"}, {"new", "string"}}, "DataFrame", "Rename a column in DataFrame", "rename($df, \"old_name\", \"new_name\")"},
+        {"select_cols", {{"df", "DataFrame"}, {"cols", "vector<string>"}}, "DataFrame", "Select specific columns from DataFrame", "select_cols($df, <\"name\",\"age\">)"},
+        {"drop_cols", {{"df", "DataFrame"}, {"cols", "vector<string>"}}, "DataFrame", "Drop multiple columns from DataFrame", "drop_cols($df, <\"id\",\"temp\">)"},
+        {"fillna", {{"vec", "vector"}, {"val", "string|number"}}, "vector", "Fill NaN values with a value", "fillna(<1, NaN, 3>, 0)"},
+        {"replace_val", {{"df", "DataFrame"}, {"col", "string"}, {"old", "string"}, {"new", "string"}}, "DataFrame", "Replace values in DataFrame column", "replace_val($df, \"status\", \"old\", \"new\")"},
+        {"clip", {{"vec", "vector"}, {"min", "number"}, {"max", "number"}}, "vector", "Clip values to a range", "clip(<1,5,10>, 2, 8)"},
+        {"trim", {{"vec", "vector"}, {"percentile", "number"}}, "vector", "Trim outliers by percentiles", "trim(<1,2,3,100>, 10)"},
+        {"normalize", {{"vec", "vector"}}, "vector", "Normalize vector to [0,1] range", "normalize(<1,2,3,4,5>)"},
+        {"standardize", {{"vec", "vector"}}, "vector", "Standardize vector to z-scores (mean=0, sd=1)", "standardize(<1,2,3,4,5>)"},
 
-        // Scene/Graph
-        {"guardar_grafo", {{"path", "string"}}, "null", "Save current scene to JSON file", "guardar_grafo(\"scene.json\")"},
-        {"cargar_grafo", {{"path", "string"}}, "scene", "Load scene from JSON file", "cargar_grafo(\"scene.json\")"},
-        {"grafo_actual", {}, "scene", "Get the current active scene", "grafo_actual()"},
-
-        // Errors
-        {"mk_err", {{"type", "string"}, {"message", "string"}}, "error", "Create an error value", "mk_err(\"runtime\", \"something failed\")"},
-        {"mk_null_val", {}, "null", "Create an explicit null value", "mk_null_val()"},
-
-        // FFI
-        {"load_lib", {{"path", "string"}, {"funcs", "dict"}}, "null", "Load native library (.so/.dll)", "load_lib(\"lib.so\", {\"fn\": \"fn($a) -> $a\"})"},
-        {"plugin", {{"path", "string"}, {"funcs", "vector<string>", true}}, "string", "Load plugin with v2 ABI", "plugin(\"lib.so\")"},
-        {"plugin_info", {{"path", "string"}}, "dict", "Get plugin metadata", "plugin_info(\"lib.so\")"},
-
-        // Memory management (Arena allocator)
-        {"clear_arena", {}, "null", "Reset arena allocator — frees all temporary values at once", "clear_arena()"},
-        {"arena_bytes", {}, "number", "Return bytes currently allocated in the arena", "arena_bytes()"},
-
-        // Version
-        {"zeta_version", {}, "string", "Return the Zeta language version string", "zeta_version()"},
+        // Input/Output
+        {"load_csv", {{"path", "string"}, {"sep", "string", true}}, "DataFrame", "Load CSV file into DataFrame", "load_csv(\"data.csv\")"},
+        {"load_json", {{"path", "string"}}, "DataFrame", "Load JSON file into DataFrame", "load_json(\"data.json\")"},
+        {"load_xlsx", {{"path", "string"}, {"sheet", "number", true}}, "DataFrame", "Load Excel file into DataFrame", "load_xlsx(\"data.xlsx\", 0)"},
+        {"save_csv", {{"path", "string"}, {"df", "DataFrame"}, {"sep", "string", true}}, "null", "Save DataFrame to CSV file", "save_csv(\"output.csv\", $df)"},
+        {"save_xlsx", {{"path", "string"}, {"df", "DataFrame"}}, "null", "Save DataFrame to Excel file", "save_xlsx(\"output.xlsx\", $df)"},
 
         // Visualization
-        {"plot", {{"data", "vector"}, {"type", "string", true}, {"title", "string", true}}, "graph", "Create a plot", "plot($scores, \"bar\", \"Scores\")"},
-        {"metric", {{"name", "string"}, {"value", "number"}}, "metric", "Create a KPI metric", "metric(\"Revenue\", 50000)"},
-        {"dashboard", {{"title", "string"}, {"author", "string", true}}, "dashboard", "Create dashboard config", "dashboard(\"Sales\", \"Team\")"},
-        {"serve", {{"port", "number"}}, "null", "Start HTTP server", "serve(8080)"},
-        {"route", {{"method", "string"}, {"path", "string"}, {"handler", "function"}}, "null", "Register HTTP route", "route(\"GET\", \"/api\", fn() {...})"},
+        {"scene", {{"title", "string"}, {"themes", "vector<string>", true}}, "scene", "Create a new visualization scene", "scene(\"My Dashboard\")"},
+        {"add_metric", {{"label", "string"}, {"value", "number"}, {"unit", "string", true}, {"color", "string", true}}, "null", "Add a metric card to the scene", "add_metric(\"Revenue\", 50000, \"$\")"},
+        {"add_line_plot", {{"df", "DataFrame"}, {"x", "string"}, {"y", "string"}, {"title", "string"}}, "null", "Add a line plot to the scene", "add_line_plot($df, \"date\", \"sales\", \"Sales Over Time\")"},
+        {"add_bar_chart", {{"df", "DataFrame"}, {"x", "string"}, {"y", "string"}, {"title", "string"}}, "null", "Add a bar chart to the scene", "add_bar_chart($df, \"category\", \"count\", \"Distribution\")"},
+        {"add_scatter", {{"df", "DataFrame"}, {"x", "string"}, {"y", "string"}, {"title", "string"}}, "null", "Add a scatter plot to the scene", "add_scatter($df, \"height\", \"weight\", \"Correlation\")"},
+        {"add_histogram", {{"df", "DataFrame"}, {"col", "string"}, {"title", "string"}, {"bins", "number", true}}, "null", "Add a histogram to the scene", "add_histogram($df, \"age\", \"Age Distribution\", 20)"},
+        {"add_box_plot", {{"df", "DataFrame"}, {"col", "string"}, {"title", "string"}}, "null", "Add a box plot to the scene", "add_box_plot($df, \"score\", \"Score Distribution\")"},
+        {"add_linear_regression", {{"df", "DataFrame"}, {"x", "string"}, {"y", "string"}, {"title", "string"}}, "null", "Add a scatter plot with linear regression line", "add_linear_regression($df, \"x\", \"y\", \"Regression\")"},
+
+        // Error Handling
+        {"mk_err", {{"code", "string"}, {"msg", "string"}}, "error", "Create an error value", "mk_err(\"E001\", \"Invalid input\")"},
+        {"mk_null_val", {}, "null", "Create a null value", "mk_null_val()"},
+
+        // Type Checking
+        {"type", {{"val", "any"}}, "string", "Get type name of a value", "type(42)"},
+        {"is_null", {{"val", "any"}}, "bool", "Check if a value is null", "is_null(null)"},
+        {"is_error", {{"val", "any"}}, "bool", "Check if a value is an error", "is_error(mk_err(\"E001\", \"error\"))"},
+
+        // Functional
+        {"map", {{"vec", "vector"}, {"fn", "function"}}, "vector", "Apply function to each element of vector", "map(<1,2,3>, $x -> $x * 2)"},
+        {"filter", {{"vec", "vector"}, {"fn", "function"}}, "vector", "Filter vector elements by predicate", "filter(<1,2,3,4>, $x -> $x > 2)"},
+        {"reduce", {{"vec", "vector"}, {"fn", "function"}, {"init", "any"}}, "any", "Reduce vector to single value", "reduce(<1,2,3>, $a $b -> $a + $b, 0)"},
+
+        // Matrix
+        {"transpose", {{"m", "matrix"}}, "matrix", "Transpose a matrix", "transpose(<<1,2>,<3,4>>>)"},
+        {"dot", {{"a", "vector"}, {"b", "vector"}}, "number", "Dot product of two vectors", "dot(<1,2>, <3,4>)"},
+
+        // Foreign Function Interface
+        {"load_lib", {{"path", "string"}, {"config", "dict"}}, "null", "Load a native plugin library", "load_lib(\"my_plugin.so\", {})"},
+        {"plugin", {{"name", "string"}}, "bool", "Check if a plugin is loaded", "plugin(\"my_plugin\")"},
+        {"plugin_info", {{"name", "string"}}, "dict", "Get information about a loaded plugin", "plugin_info(\"my_plugin\")"},
+
+        // Memory Management
+        {"clear_arena", {}, "null", "Reset arena allocator (bulk free all arena memory)", "clear_arena()"},
+        {"arena_bytes", {}, "number", "Query current arena allocation size in bytes", "arena_bytes()"},
+
+        // System
+        {"zeta_version", {}, "string", "Get Zeta runtime version string", "zeta_version()"},
+        {"print", {{"values", "any..."}}, "null", "Print values to stdout", "print(\"Hello\", 42)"},
+        {"time", {}, "number", "Get current Unix timestamp in seconds", "time()"},
+        {"route", {{"method", "string"}, {"path", "string"}, {"handler", "function"}}, "null", "Define an HTTP route handler for the server", "route(\"GET\", \"/api/data\", $req -> $data)"},
+
     };
 
     for (auto& b : builtins_) {
