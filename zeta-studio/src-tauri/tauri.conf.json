@@ -1,11 +1,16 @@
 {
-  "productName": "Zeta Studio",
+  "$schema": "https://raw.githubusercontent.com/nicegui/tauri/refs/heads/main/packages/api/src/tauri.conf.schema.json",
+  "productName": "zeta-studio",
+  "version": "0.1.0",
   "identifier": "com.zeta.studio",
   "build": {
-    "frontendDist": "../dist",
-    "devUrl": "http://localhost:1420"
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "Zeta Studio",
@@ -19,14 +24,15 @@
       "csp": null
     }
   },
-  "plugins": {
-    "fs": {
-      "scope": {
-        "allow": ["**"]
-      }
-    },
-    "dialog": {
-      "all": true
-    }
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "msi"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
   }
 }

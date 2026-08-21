@@ -14,7 +14,7 @@ pub struct LspState {
 }
 
 impl LspState {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             child: None,
             stdin: None,
@@ -331,10 +331,10 @@ pub fn lsp_hover(
                 let start = r.get("start")?;
                 let end = r.get("end")?;
                 Some(HoverRange {
-                    start_line: start.get("line")?.as_i32()?,
-                    start_character: start.get("character")?.as_i32()?,
-                    end_line: end.get("line")?.as_i32()?,
-                    end_character: end.get("character")?.as_i32()?,
+                    start_line: start.get("line")?.as_i64()? as i32,
+                    start_character: start.get("character")?.as_i64()? as i32,
+                    end_line: end.get("line")?.as_i64()? as i32,
+                    end_character: end.get("character")?.as_i64()? as i32,
                 })
             });
 
@@ -379,12 +379,12 @@ pub fn lsp_definition(
                     .and_then(|u| u.as_str())
                     .unwrap_or("")
                     .to_string();
-                let pos = loc.get("range").and_then(|r| r.get("start"))?;
-                let line = pos.get("line").and_then(|l| l.as_i32()).unwrap_or(0);
+                let pos = loc.get("range").and_then(|r| r.get("start")).ok_or("missing range.start")?;
+                let line = pos.get("line").and_then(|l| l.as_i64()).unwrap_or(0) as i32;
                 let character = pos
                     .get("character")
-                    .and_then(|c| c.as_i32())
-                    .unwrap_or(0);
+                    .and_then(|c| c.as_i64())
+                    .unwrap_or(0) as i32;
                 Ok(Some(LspLocation {
                     uri,
                     line,
@@ -402,12 +402,13 @@ pub fn lsp_definition(
                 .to_string();
             let pos = response
                 .get("range")
-                .and_then(|r| r.get("start"))?;
-            let line = pos.get("line").and_then(|l| l.as_i32()).unwrap_or(0);
+                .and_then(|r| r.get("start"))
+                .ok_or("missing range.start")?;
+            let line = pos.get("line").and_then(|l| l.as_i64()).unwrap_or(0) as i32;
             let character = pos
                 .get("character")
-                .and_then(|c| c.as_i32())
-                .unwrap_or(0);
+                .and_then(|c| c.as_i64())
+                .unwrap_or(0) as i32;
             Ok(Some(LspLocation {
                 uri,
                 line,
